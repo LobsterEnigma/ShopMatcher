@@ -37,7 +37,7 @@ if ($_POST && isset($_POST['change_password'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>个人中心 - <?php echo SITE_NAME; ?></title>
+    <title>个人中心 - <?php echo getSiteName(); ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -88,7 +88,7 @@ if ($_POST && isset($_POST['change_password'])) {
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="index.php">
-                <i class="fas fa-gamepad"></i> <?php echo SITE_NAME; ?>
+                <i class="fas fa-gamepad"></i> <?php echo getSiteName(); ?>
             </a>
             
             <div class="navbar-nav me-auto">

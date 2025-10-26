@@ -62,4 +62,27 @@ spl_autoload_register(function ($class) {
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
+
+// 获取系统设置（从数据库）- 不使用缓存，每次都读取最新值
+function getSiteSetting($key, $default = '') {
+    try {
+        $dbPath = dirname(__DIR__) . '/database.db';
+        $pdo = new PDO('sqlite:' . $dbPath);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo->exec('PRAGMA busy_timeout = 5000');
+        
+        $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = ?");
+        $stmt->execute([$key]);
+        $result = $stmt->fetchColumn();
+        
+        return $result !== false ? $result : $default;
+    } catch (PDOException $e) {
+        return $default;
+    }
+}
+
+// 动态获取网站名称
+function getSiteName() {
+    return getSiteSetting('site_name', SITE_NAME);
+}
 ?>

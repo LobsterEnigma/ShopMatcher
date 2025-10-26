@@ -30,7 +30,7 @@ $products = $productObj->getAllProducts();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo SITE_NAME; ?></title>
+    <title><?php echo getSiteName(); ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -70,7 +70,7 @@ $products = $productObj->getAllProducts();
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="index.php">
-                <i class="fas fa-gamepad"></i> <?php echo SITE_NAME; ?>
+                <i class="fas fa-gamepad"></i> <?php echo getSiteName(); ?>
             </a>
             
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -209,11 +209,11 @@ $products = $productObj->getAllProducts();
         <div class="container">
             <div class="row">
                 <div class="col-md-6">
-                    <h5><?php echo SITE_NAME; ?></h5>
+                    <h5><?php echo getSiteName(); ?></h5>
                     <p>专业的游戏手柄对比平台，为您提供最全面的产品信息和购买建议。</p>
                 </div>
                 <div class="col-md-6 text-md-end">
-                    <p>&copy; 2024 <?php echo SITE_NAME; ?>. All rights reserved.</p>
+                    <p>&copy; 2024 <?php echo getSiteName(); ?>. All rights reserved.</p>
                 </div>
             </div>
         </div>

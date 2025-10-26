@@ -37,7 +37,7 @@ if ($_POST) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>用户登录 - <?php echo SITE_NAME; ?></title>
+    <title>用户登录 - <?php echo getSiteName(); ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -105,7 +105,7 @@ if ($_POST) {
             <div class="col-md-6 col-lg-4">
                 <div class="login-card">
                     <div class="login-header">
-                        <h3><i class="fas fa-gamepad"></i> <?php echo SITE_NAME; ?></h3>
+                        <h3><i class="fas fa-gamepad"></i> <?php echo getSiteName(); ?></h3>
                         <p class="mb-0">欢迎回来</p>
                     </div>
                     

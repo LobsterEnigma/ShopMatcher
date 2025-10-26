@@ -22,7 +22,7 @@ class User {
         }
         
         // 创建用户
-        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+        $hashedPassword = password_hash($password, PASSWORD_BCRYPT, ['cost' => 4]);
         $stmt = $pdo->prepare("INSERT INTO users (username, email, password, created_at) VALUES (?, ?, ?, datetime('now'))");
         if ($stmt->execute([$username, $email, $hashedPassword])) {
             return ['success' => true, 'message' => '注册成功'];
@@ -116,7 +116,7 @@ class User {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (password_verify($oldPassword, $user['password'])) {
-            $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+            $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT, ['cost' => 4]);
             $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
             return $stmt->execute([$hashedPassword, $userId]);
         }

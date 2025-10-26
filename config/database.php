@@ -8,6 +8,11 @@ class Database {
             $dbPath = dirname(__DIR__) . '/database.db';
             $this->pdo = new PDO('sqlite:' . $dbPath);
             $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            
+            // 设置超时和WAL模式以避免数据库锁定
+            $this->pdo->exec('PRAGMA busy_timeout = 5000');
+            $this->pdo->exec('PRAGMA journal_mode = WAL');
+            
             $this->createTables();
         } catch(PDOException $e) {
             die("数据库连接失败: " . $e->getMessage());
@@ -241,7 +246,7 @@ class Database {
             $this->pdo->exec("INSERT INTO categories (name, description) VALUES ('手柄', '游戏手柄产品对比')");
             
             // 插入默认管理员
-            $this->pdo->exec("INSERT INTO admins (username, password, is_main, created_at) VALUES ('admin', '" . password_hash('admin123', PASSWORD_DEFAULT) . "', 1, datetime('now'))");
+            $this->pdo->exec("INSERT INTO admins (username, password, is_main, created_at) VALUES ('admin', '" . password_hash('admin123', PASSWORD_BCRYPT, ['cost' => 4]) . "', 1, datetime('now'))");
             
             // 插入默认头衔
             $this->pdo->exec("INSERT INTO titles (name, description, color) VALUES 

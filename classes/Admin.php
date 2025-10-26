@@ -34,7 +34,7 @@ class Admin {
     // 添加管理员
     public function addAdmin($username, $password, $email = '') {
         $pdo = $this->db->getConnection();
-        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+        $hashedPassword = password_hash($password, PASSWORD_BCRYPT, ['cost' => 4]);
         
         $stmt = $pdo->prepare("INSERT INTO admins (username, password, email, is_main, created_at) VALUES (?, ?, ?, 0, datetime('now'))");
         return $stmt->execute([$username, $hashedPassword, $email]);
@@ -50,7 +50,7 @@ class Admin {
     // 修改管理员密码
     public function changeAdminPassword($adminId, $newPassword) {
         $pdo = $this->db->getConnection();
-        $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+        $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT, ['cost' => 4]);
         
         $stmt = $pdo->prepare("UPDATE admins SET password = ? WHERE id = ?");
         return $stmt->execute([$hashedPassword, $adminId]);
