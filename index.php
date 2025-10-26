@@ -213,10 +213,17 @@ $products = $productObj->getAllProducts();
                     <p>专业的游戏手柄对比平台，为您提供最全面的产品信息和购买建议。</p>
                 </div>
                 <div class="col-md-6 text-md-end">
-                    <p>&copy; 2024 <?php echo getSiteName(); ?>. All rights reserved.</p>
+                    <p>&copy; 2025 <?php echo getSiteName(); ?>. All rights reserved.</p>
                 </div>
             </div>
         </div>
+		<!-- 在网页Footer/APP关于页添加 -->
+<div>
+  基于 <a href="https://github.com/LobsterEnigma/ShopMatcher">[ShopMatcher]</a> 构建 | 
+  作者：<a href="https://github.com/LobsterEnigma">LobsterEnigma</a>
+</div>
+
+
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
