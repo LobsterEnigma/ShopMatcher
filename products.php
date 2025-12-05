@@ -2,10 +2,34 @@
 require_once 'config/config.php';
 require_once 'config/database.php';
 require_once 'classes/Product.php';
+require_once 'classes/Markdown.php';
 
 $productObj = new Product();
 $categoryId = $_GET['category'] ?? null;
-$products = $productObj->getAllProducts($categoryId);
+$tagName = isset($_GET['tag']) ? urldecode($_GET['tag']) : null;
+
+// 根据标签或分类获取产品
+if ($tagName) {
+    // 如果选择了标签，获取该标签下的产品
+    $products = $productObj->getProductsByTagName($tagName);
+    
+    // 如果同时选择了分类，进一步筛选
+    if ($categoryId) {
+        $products = array_filter($products, function($product) use ($categoryId) {
+            return $product['category_id'] == $categoryId;
+        });
+        // 重新索引数组
+        $products = array_values($products);
+    }
+} else {
+    // 否则按分类获取
+    $products = $productObj->getAllProducts($categoryId);
+}
+
+// 为每个产品添加标签信息
+foreach ($products as $key => $product) {
+    $products[$key]['tags'] = $productObj->getProductTags($product['id']);
+}
 
 // 获取分类
 $db = new Database();
@@ -13,6 +37,9 @@ $pdo = $db->getConnection();
 $stmt = $pdo->prepare("SELECT * FROM categories ORDER BY name");
 $stmt->execute();
 $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// 获取所有有产品关联的标签（只显示实际使用的标签）
+$allTags = $productObj->getActiveTags();
 ?>
 
 <!DOCTYPE html>
@@ -99,14 +126,47 @@ $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </nav>
 
     <div class="container my-5">
-        <h2 class="mb-4"><i class="fas fa-balance-scale"></i> 产品对比</h2>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="mb-0"><i class="fas fa-balance-scale"></i> 产品对比</h2>
+            <?php if ($tagName || $categoryId): ?>
+            <div>
+                <?php if ($tagName): ?>
+                <span class="badge bg-primary me-2">
+                    <i class="fas fa-tag"></i> 标签：<?php echo htmlspecialchars($tagName); ?>
+                    <a href="products.php<?php echo $categoryId ? '?category=' . $categoryId : ''; ?>" class="text-white ms-2" style="text-decoration: none;">
+                        <i class="fas fa-times"></i>
+                    </a>
+                </span>
+                <?php endif; ?>
+                <?php if ($categoryId): ?>
+                    <?php 
+                    $currentCategory = null;
+                    foreach ($categories as $cat) {
+                        if ($cat['id'] == $categoryId) {
+                            $currentCategory = $cat;
+                            break;
+                        }
+                    }
+                    ?>
+                    <?php if ($currentCategory): ?>
+                    <span class="badge bg-info me-2">
+                        <i class="fas fa-folder"></i> 分类：<?php echo htmlspecialchars($currentCategory['name']); ?>
+                        <a href="products.php<?php echo $tagName ? '?tag=' . urlencode($tagName) : ''; ?>" class="text-white ms-2" style="text-decoration: none;">
+                            <i class="fas fa-times"></i>
+                        </a>
+                    </span>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+        </div>
         
         <!-- 筛选区域 -->
         <div class="filter-section">
             <div class="row">
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">分类筛选</label>
-                    <select class="form-select" onchange="filterByCategory(this.value)">
+                    <select class="form-select" id="categoryFilter" onchange="filterByCategory(this.value)">
                         <option value="">全部分类</option>
                         <?php foreach ($categories as $category): ?>
                         <option value="<?php echo $category['id']; ?>" <?php echo $categoryId == $category['id'] ? 'selected' : ''; ?>>
@@ -115,7 +175,18 @@ $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
+                    <label class="form-label">标签筛选</label>
+                    <select class="form-select" id="tagFilter" onchange="filterByTag(this.value)">
+                        <option value="">全部标签</option>
+                        <?php foreach ($allTags as $tag): ?>
+                        <option value="<?php echo htmlspecialchars($tag['name']); ?>" <?php echo $tagName == $tag['name'] ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($tag['name']); ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <label class="form-label">价格范围</label>
                     <select class="form-select" onchange="filterByPrice(this.value)">
                         <option value="">全部价格</option>
@@ -126,7 +197,7 @@ $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <option value="1000+">1000元以上</option>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">排序方式</label>
                     <select class="form-select" onchange="sortProducts(this.value)">
                         <option value="newest">最新发布</option>
@@ -135,7 +206,7 @@ $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <option value="name">按名称排序</option>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <label class="form-label">搜索产品</label>
                     <div class="input-group">
                         <input type="text" class="form-control" id="searchInput" placeholder="输入产品名称...">
@@ -164,7 +235,21 @@ $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <div class="card-body d-flex flex-column">
                         <h5 class="card-title"><?php echo htmlspecialchars($product['name']); ?></h5>
                         <p class="card-text text-muted"><?php echo htmlspecialchars($product['brand']); ?></p>
-                        <p class="card-text"><?php echo mb_substr(strip_tags($product['description']), 0, 100); ?>...</p>
+                        <?php
+                            $productDescription = Markdown::toPlainText($product['description']);
+                            $productDescriptionShort = mb_substr($productDescription, 0, 100);
+                        ?>
+                        <p class="card-text"><?php echo htmlspecialchars($productDescriptionShort); ?>...</p>
+                        
+                        <?php if (!empty($product['tags'])): ?>
+                        <div class="mb-2">
+                            <?php foreach ($product['tags'] as $tag): ?>
+                            <a href="tag.php?name=<?php echo urlencode($tag['name']); ?>" class="badge bg-secondary text-decoration-none me-1">
+                                <?php echo htmlspecialchars($tag['name']); ?>
+                            </a>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php endif; ?>
                         
                         <?php if ($product['ai_summary']): ?>
                         <div class="mb-2">
@@ -354,11 +439,43 @@ $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
         
         function filterByCategory(categoryId) {
+            const tagFilter = document.getElementById('tagFilter');
+            const tagName = tagFilter ? tagFilter.value : '';
+            let url = 'products.php';
+            const params = [];
+            
             if (categoryId) {
-                window.location.href = `products.php?category=${categoryId}`;
-            } else {
-                window.location.href = 'products.php';
+                params.push(`category=${categoryId}`);
             }
+            if (tagName) {
+                params.push(`tag=${encodeURIComponent(tagName)}`);
+            }
+            
+            if (params.length > 0) {
+                url += '?' + params.join('&');
+            }
+            
+            window.location.href = url;
+        }
+        
+        function filterByTag(tagName) {
+            const categoryFilter = document.getElementById('categoryFilter');
+            const categoryId = categoryFilter ? categoryFilter.value : '';
+            let url = 'products.php';
+            const params = [];
+            
+            if (categoryId) {
+                params.push(`category=${categoryId}`);
+            }
+            if (tagName) {
+                params.push(`tag=${encodeURIComponent(tagName)}`);
+            }
+            
+            if (params.length > 0) {
+                url += '?' + params.join('&');
+            }
+            
+            window.location.href = url;
         }
         
         function filterByPrice(priceRange) {

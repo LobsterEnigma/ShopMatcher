@@ -44,7 +44,7 @@ class Product {
             INSERT INTO products (category_id, name, brand, price, image_url, description, features, specifications, faq, created_at) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
         ");
-        return $stmt->execute([
+        $result = $stmt->execute([
             $data['category_id'],
             $data['name'],
             $data['brand'],
@@ -55,6 +55,14 @@ class Product {
             $data['specifications'],
             $data['faq']
         ]);
+        
+        // 如果有标签，设置标签
+        if ($result && isset($data['tags']) && !empty($data['tags'])) {
+            $productId = $pdo->lastInsertId();
+            $this->setProductTags($productId, $data['tags']);
+        }
+        
+        return $result;
     }
     
     // 更新产品
@@ -66,7 +74,7 @@ class Product {
                 description = ?, features = ?, specifications = ?, faq = ?
             WHERE id = ?
         ");
-        return $stmt->execute([
+        $result = $stmt->execute([
             $data['category_id'],
             $data['name'],
             $data['brand'],
@@ -78,13 +86,27 @@ class Product {
             $data['faq'],
             $productId
         ]);
+        
+        // 更新标签
+        if ($result && isset($data['tags'])) {
+            $this->setProductTags($productId, $data['tags']);
+        }
+        
+        return $result;
     }
     
     // 删除产品
     public function deleteProduct($productId) {
         $pdo = $this->db->getConnection();
         $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
-        return $stmt->execute([$productId]);
+        $result = $stmt->execute([$productId]);
+        
+        // 删除产品后，自动清理未使用的标签
+        if ($result) {
+            $this->cleanUnusedTags();
+        }
+        
+        return $result;
     }
     
     // 产品对比
@@ -287,6 +309,172 @@ class Product {
         $stmt->execute([$key]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         return $result ? $result['setting_value'] : $default;
+    }
+    
+    // ========== 标签相关方法 ==========
+    
+    // 获取产品的所有标签
+    public function getProductTags($productId) {
+        $pdo = $this->db->getConnection();
+        $stmt = $pdo->prepare("
+            SELECT t.id, t.name 
+            FROM tags t
+            INNER JOIN product_tags pt ON t.id = pt.tag_id
+            WHERE pt.product_id = ?
+            ORDER BY t.name
+        ");
+        $stmt->execute([$productId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    // 获取所有标签
+    public function getAllTags() {
+        $pdo = $this->db->getConnection();
+        $stmt = $pdo->query("SELECT * FROM tags ORDER BY name");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    // 创建或获取标签
+    public function createOrGetTag($tagName) {
+        $pdo = $this->db->getConnection();
+        $tagName = trim($tagName);
+        if (empty($tagName)) {
+            return null;
+        }
+        
+        // 先尝试获取现有标签
+        $stmt = $pdo->prepare("SELECT id FROM tags WHERE name = ?");
+        $stmt->execute([$tagName]);
+        $tag = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($tag) {
+            return $tag['id'];
+        }
+        
+        // 创建新标签
+        $stmt = $pdo->prepare("INSERT INTO tags (name) VALUES (?)");
+        $stmt->execute([$tagName]);
+        return $pdo->lastInsertId();
+    }
+    
+    // 设置产品的标签
+    public function setProductTags($productId, $tagNames) {
+        $pdo = $this->db->getConnection();
+        
+        // 删除现有标签关联
+        $stmt = $pdo->prepare("DELETE FROM product_tags WHERE product_id = ?");
+        $stmt->execute([$productId]);
+        
+        // 添加新标签
+        if (!empty($tagNames) && is_array($tagNames)) {
+            $stmt = $pdo->prepare("INSERT INTO product_tags (product_id, tag_id) VALUES (?, ?)");
+            foreach ($tagNames as $tagName) {
+                $tagName = trim($tagName);
+                if (empty($tagName)) {
+                    continue;
+                }
+                $tagId = $this->createOrGetTag($tagName);
+                if ($tagId) {
+                    try {
+                        $stmt->execute([$productId, $tagId]);
+                    } catch (PDOException $e) {
+                        // 忽略重复键错误
+                        if ($e->getCode() != 23000) {
+                            throw $e;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 自动清理未使用的标签
+        $this->cleanUnusedTags();
+        
+        return true;
+    }
+    
+    // 根据标签获取产品
+    public function getProductsByTag($tagId) {
+        $pdo = $this->db->getConnection();
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT p.*, c.name as category_name 
+            FROM products p
+            INNER JOIN product_tags pt ON p.id = pt.product_id
+            LEFT JOIN categories c ON p.category_id = c.id
+            WHERE pt.tag_id = ?
+            ORDER BY p.id DESC
+        ");
+        $stmt->execute([$tagId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    // 根据标签名称获取产品
+    public function getProductsByTagName($tagName) {
+        $pdo = $this->db->getConnection();
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT p.*, c.name as category_name 
+            FROM products p
+            INNER JOIN product_tags pt ON p.id = pt.product_id
+            INNER JOIN tags t ON pt.tag_id = t.id
+            LEFT JOIN categories c ON p.category_id = c.id
+            WHERE t.name = ?
+            ORDER BY p.id DESC
+        ");
+        $stmt->execute([$tagName]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    // 获取标签信息
+    public function getTagById($tagId) {
+        $pdo = $this->db->getConnection();
+        $stmt = $pdo->prepare("SELECT * FROM tags WHERE id = ?");
+        $stmt->execute([$tagId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    // 获取标签信息（根据名称）
+    public function getTagByName($tagName) {
+        $pdo = $this->db->getConnection();
+        $stmt = $pdo->prepare("SELECT * FROM tags WHERE name = ?");
+        $stmt->execute([$tagName]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    // 清理未使用的标签（没有产品关联的标签）
+    public function cleanUnusedTags() {
+        $pdo = $this->db->getConnection();
+        
+        // 先获取要删除的标签ID列表
+        $stmt = $pdo->query("
+            SELECT t.id 
+            FROM tags t
+            LEFT JOIN product_tags pt ON t.id = pt.tag_id
+            WHERE pt.tag_id IS NULL
+        ");
+        $tagsToDelete = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $count = count($tagsToDelete);
+        
+        if ($count > 0) {
+            // 删除未使用的标签
+            $placeholders = str_repeat('?,', count($tagsToDelete) - 1) . '?';
+            $stmt = $pdo->prepare("DELETE FROM tags WHERE id IN ($placeholders)");
+            $stmt->execute($tagsToDelete);
+        }
+        
+        return $count;
+    }
+    
+    // 获取有产品关联的标签列表
+    public function getActiveTags() {
+        $pdo = $this->db->getConnection();
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT t.id, t.name 
+            FROM tags t
+            INNER JOIN product_tags pt ON t.id = pt.tag_id
+            ORDER BY t.name
+        ");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
 ?>

@@ -234,6 +234,28 @@ class Database {
             )
         ");
         
+        // 标签表
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(50) UNIQUE NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+        
+        // 产品标签关联表
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS product_tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER NOT NULL,
+                tag_id INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+                FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
+                UNIQUE(product_id, tag_id)
+            )
+        ");
+        
         // 插入默认数据
         $this->insertDefaultData();
     }

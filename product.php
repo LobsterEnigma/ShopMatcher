@@ -2,6 +2,7 @@
 require_once 'config/config.php';
 require_once 'config/database.php';
 require_once 'classes/Product.php';
+require_once 'classes/Markdown.php';
 
 $productId = $_GET['id'] ?? 0;
 if (!$productId) {
@@ -17,6 +18,9 @@ if (!$product) {
     header('Location: products.php');
     exit;
 }
+
+// 获取产品标签
+$product['tags'] = $productObj->getProductTags($productId);
 ?>
 
 <!DOCTYPE html>
@@ -57,6 +61,14 @@ if (!$product) {
             color: #667eea;
             margin-bottom: 15px;
             font-weight: bold;
+        }
+        .markdown-content p {
+            margin-bottom: 0.5rem;
+        }
+        .markdown-content ul,
+        .markdown-content ol {
+            padding-left: 1.25rem;
+            margin-bottom: 1rem;
         }
         .breadcrumb {
             background: transparent;
@@ -133,6 +145,13 @@ if (!$product) {
                         <span class="badge-category">
                             <i class="fas fa-tag"></i> <?php echo htmlspecialchars($product['category_name'] ?? '未分类'); ?>
                         </span>
+                        <?php if (!empty($product['tags'])): ?>
+                            <?php foreach ($product['tags'] as $tag): ?>
+                            <a href="tag.php?name=<?php echo urlencode($tag['name']); ?>" class="badge bg-secondary text-decoration-none ms-2">
+                                <i class="fas fa-tag"></i> <?php echo htmlspecialchars($tag['name']); ?>
+                            </a>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </div>
                     
                     <h2 class="mb-3"><?php echo htmlspecialchars($product['name']); ?></h2>
@@ -146,10 +165,14 @@ if (!$product) {
                         <span class="price-tag">¥<?php echo number_format($product['price'], 2); ?></span>
                     </div>
                     
+                    <?php if (!empty($product['description'])): ?>
                     <div class="mb-4">
                         <h5>产品描述</h5>
-                        <p class="text-muted"><?php echo nl2br(htmlspecialchars($product['description'])); ?></p>
+                        <div class="text-muted markdown-content">
+                            <?php echo Markdown::toHtml($product['description']); ?>
+                        </div>
                     </div>
+                    <?php endif; ?>
                     
                     <div class="d-grid gap-2">
                         <a href="products.php" class="btn btn-outline-secondary btn-lg">
@@ -168,21 +191,21 @@ if (!$product) {
                     <?php if (!empty($product['features'])): ?>
                     <div class="product-section">
                         <h5><i class="fas fa-star"></i> 产品特性</h5>
-                        <div><?php echo nl2br(htmlspecialchars($product['features'])); ?></div>
+                        <div class="markdown-content"><?php echo Markdown::toHtml($product['features']); ?></div>
                     </div>
                     <?php endif; ?>
 
                     <?php if (!empty($product['specifications'])): ?>
                     <div class="product-section">
                         <h5><i class="fas fa-cog"></i> 技术规格</h5>
-                        <div><?php echo nl2br(htmlspecialchars($product['specifications'])); ?></div>
+                        <div class="markdown-content"><?php echo Markdown::toHtml($product['specifications']); ?></div>
                     </div>
                     <?php endif; ?>
 
                     <?php if (!empty($product['faq'])): ?>
                     <div class="product-section">
                         <h5><i class="fas fa-question-circle"></i> 常见问题</h5>
-                        <div><?php echo nl2br(htmlspecialchars($product['faq'])); ?></div>
+                        <div class="markdown-content"><?php echo Markdown::toHtml($product['faq']); ?></div>
                     </div>
                     <?php endif; ?>
                 </div>

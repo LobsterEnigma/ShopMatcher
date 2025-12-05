@@ -3,6 +3,7 @@ require_once 'config/config.php';
 require_once 'config/database.php';
 require_once 'classes/Product.php';
 require_once 'classes/User.php';
+require_once 'classes/Markdown.php';
 
 // 检查用户是否登录
 if (!isset($_SESSION['user_id'])) {
@@ -77,6 +78,14 @@ $products = $result['products'];
             font-size: 1.5rem;
             font-weight: bold;
             color: #28a745;
+        }
+        .markdown-content p {
+            margin-bottom: 0.5rem;
+        }
+        .markdown-content ul,
+        .markdown-content ol {
+            padding-left: 1.25rem;
+            margin-bottom: 1rem;
         }
         .comparison-stats {
             background: #f8f9fa;
@@ -178,9 +187,13 @@ $products = $result['products'];
                                 <tr class="comparison-row">
                                     <td class="feature-label">产品描述</td>
                                     <?php foreach ($products as $product): ?>
+                                    <?php
+                                        $descriptionPlain = Markdown::toPlainText($product['description']);
+                                        $descriptionShort = mb_substr($descriptionPlain, 0, 200);
+                                    ?>
                                     <td class="feature-value">
-                                        <?php echo nl2br(htmlspecialchars(mb_substr($product['description'], 0, 200))); ?>
-                                        <?php if (mb_strlen($product['description']) > 200): ?>...<?php endif; ?>
+                                        <?php echo nl2br(htmlspecialchars($descriptionShort)); ?>
+                                        <?php if (mb_strlen($descriptionPlain) > 200): ?>...<?php endif; ?>
                                     </td>
                                     <?php endforeach; ?>
                                 </tr>
@@ -190,8 +203,8 @@ $products = $result['products'];
                                 <tr class="comparison-row">
                                     <td class="feature-label">产品特性</td>
                                     <?php foreach ($products as $product): ?>
-                                    <td class="feature-value">
-                                        <?php echo nl2br(htmlspecialchars($product['features'])); ?>
+                                    <td class="feature-value markdown-content">
+                                        <?php echo Markdown::toHtml($product['features']); ?>
                                     </td>
                                     <?php endforeach; ?>
                                 </tr>
@@ -202,8 +215,8 @@ $products = $result['products'];
                                 <tr class="comparison-row">
                                     <td class="feature-label">技术规格</td>
                                     <?php foreach ($products as $product): ?>
-                                    <td class="feature-value">
-                                        <?php echo nl2br(htmlspecialchars($product['specifications'])); ?>
+                                    <td class="feature-value markdown-content">
+                                        <?php echo Markdown::toHtml($product['specifications']); ?>
                                     </td>
                                     <?php endforeach; ?>
                                 </tr>

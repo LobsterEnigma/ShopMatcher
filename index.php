@@ -2,6 +2,7 @@
 require_once 'config/config.php';
 require_once 'config/database.php';
 require_once 'classes/Product.php';
+require_once 'classes/Markdown.php';
 
 // 检查维护模式
 $db = new Database();
@@ -149,7 +150,11 @@ $products = $productObj->getAllProducts();
                         <div class="card-body d-flex flex-column">
                             <h5 class="card-title"><?php echo htmlspecialchars($product['name']); ?></h5>
                             <p class="card-text text-muted"><?php echo htmlspecialchars($product['brand']); ?></p>
-                            <p class="card-text"><?php echo mb_substr(strip_tags($product['description']), 0, 100); ?>...</p>
+                            <?php
+                                $indexDescription = Markdown::toPlainText($product['description']);
+                                $indexDescriptionShort = mb_substr($indexDescription, 0, 100);
+                            ?>
+                            <p class="card-text"><?php echo htmlspecialchars($indexDescriptionShort); ?>...</p>
                             <div class="mt-auto">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <span class="h5 text-primary">¥<?php echo number_format($product['price'], 2); ?></span>
