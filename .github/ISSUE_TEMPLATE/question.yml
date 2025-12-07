@@ -1,5 +1,5 @@
 name: Question
-description: Further information is requested
+description: Request for further information or clarification
 title: "[Question] "
 labels:
   - question
@@ -17,7 +17,7 @@ body:
   - type: textarea
     id: question
     attributes:
-      label: 你的问题是什么？
-      placeholder: 请尽量详细描述你的疑问
+      label: Your Question
+      placeholder: Describe your question in as much detail as possible
     validations:
       required: true
