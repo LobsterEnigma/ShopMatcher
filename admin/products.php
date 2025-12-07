@@ -13,18 +13,96 @@ if (!isset($_SESSION['admin_id'])) {
 $admin = new Admin();
 $productObj = new Product();
 
+function handleProductImageUpload(string $fieldName = 'image_file')
+{
+    if (!isset($_FILES[$fieldName]) || !is_array($_FILES[$fieldName])) {
+        return null;
+    }
+    
+    $file = $_FILES[$fieldName];
+    if ($file['error'] === UPLOAD_ERR_NO_FILE || empty($file['name'])) {
+        return null;
+    }
+    
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        $_SESSION['product_error'] = '图片上传失败，请重试。';
+        return false;
+    }
+    
+    $maxSize = 5 * 1024 * 1024; // 5MB
+    if ($file['size'] > $maxSize) {
+        $_SESSION['product_error'] = '图片大小不能超过5MB。';
+        return false;
+    }
+    
+    $allowedTypes = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/gif' => 'gif',
+        'image/webp' => 'webp'
+    ];
+    
+    // 优先使用 fileinfo，若未安装扩展则回退到其他可用方法
+    $mimeType = null;
+    if (function_exists('finfo_open')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo) {
+            $mimeType = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+        }
+    } elseif (function_exists('mime_content_type')) {
+        $mimeType = mime_content_type($file['tmp_name']);
+    } elseif (function_exists('getimagesize')) {
+        $info = @getimagesize($file['tmp_name']);
+        if ($info && isset($info['mime'])) {
+            $mimeType = $info['mime'];
+        }
+    }
+    
+    if (!$mimeType || !isset($allowedTypes[$mimeType])) {
+        $_SESSION['product_error'] = '仅支持上传 JPG/PNG/GIF/WebP 图片。';
+        return false;
+    }
+    
+    $uploadDir = dirname(__DIR__) . '/upload/image/';
+    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
+        $_SESSION['product_error'] = '无法创建上传目录，请检查权限。';
+        return false;
+    }
+    
+    $fileName = uniqid('product_', true) . '.' . $allowedTypes[$mimeType];
+    $destination = $uploadDir . $fileName;
+    
+    if (!move_uploaded_file($file['tmp_name'], $destination)) {
+        $_SESSION['product_error'] = '保存上传图片失败，请稍后重试。';
+        return false;
+    }
+    
+    return '/upload/image/' . $fileName;
+}
+
 // 处理产品操作
 if ($_POST) {
     $action = $_POST['action'] ?? '';
+    $uploadedImagePath = null;
+    
+    if (in_array($action, ['add', 'update'])) {
+        $uploadedImagePath = handleProductImageUpload();
+        if ($uploadedImagePath === false) {
+            header('Location: products.php');
+            exit;
+        }
+    }
     
     switch ($action) {
         case 'add':
+            $imageUrl = $uploadedImagePath ?? ($_POST['image_url'] ?? '');
             $data = [
                 'category_id' => $_POST['category_id'],
                 'name' => $_POST['name'],
                 'brand' => $_POST['brand'],
                 'price' => $_POST['price'],
-                'image_url' => $_POST['image_url'],
+                'image_url' => $imageUrl,
                 'description' => $_POST['description'],
                 'features' => $_POST['features'],
                 'specifications' => $_POST['specifications'],
@@ -32,15 +110,17 @@ if ($_POST) {
                 'tags' => isset($_POST['tags']) ? explode(',', $_POST['tags']) : []
             ];
             $productObj->addProduct($data);
+            $_SESSION['product_success'] = '产品添加成功';
             break;
         case 'update':
             $productId = $_POST['product_id'];
+            $imageUrl = $uploadedImagePath ?? ($_POST['image_url'] ?? '');
             $data = [
                 'category_id' => $_POST['category_id'],
                 'name' => $_POST['name'],
                 'brand' => $_POST['brand'],
                 'price' => $_POST['price'],
-                'image_url' => $_POST['image_url'],
+                'image_url' => $imageUrl,
                 'description' => $_POST['description'],
                 'features' => $_POST['features'],
                 'specifications' => $_POST['specifications'],
@@ -48,10 +128,12 @@ if ($_POST) {
                 'tags' => isset($_POST['tags']) ? explode(',', $_POST['tags']) : []
             ];
             $productObj->updateProduct($productId, $data);
+            $_SESSION['product_success'] = '产品信息已更新';
             break;
         case 'delete':
             $productId = $_POST['product_id'];
             $productObj->deleteProduct($productId);
+            $_SESSION['product_success'] = '产品已删除';
             break;
     }
     
@@ -217,12 +299,19 @@ $allTags = $productObj->getAllTags();
                     
                     <!-- 产品列表 -->
                     <div class="p-4">
-                        <?php if (isset($_SESSION['success'])): ?>
+                        <?php if (isset($_SESSION['product_success'])): ?>
                         <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            <i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($_SESSION['success']); ?>
+                            <i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($_SESSION['product_success']); ?>
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
-                        <?php unset($_SESSION['success']); ?>
+                        <?php unset($_SESSION['product_success']); ?>
+                        <?php endif; ?>
+                        <?php if (isset($_SESSION['product_error'])): ?>
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($_SESSION['product_error']); ?>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        <?php unset($_SESSION['product_error']); ?>
                         <?php endif; ?>
                         
                         <div class="row">
@@ -281,7 +370,7 @@ $allTags = $productObj->getAllTags();
                     <h5 class="modal-title">添加产品</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST" id="addProductForm" onsubmit="syncAddEditors()">
+                <form method="POST" id="addProductForm" onsubmit="syncAddEditors()" enctype="multipart/form-data">
                     <div class="modal-body">
                         <input type="hidden" name="action" value="add">
                         <div class="row">
@@ -323,6 +412,11 @@ $allTags = $productObj->getAllTags();
                             <input type="url" class="form-control" name="image_url">
                         </div>
                         <div class="mb-3">
+                            <label class="form-label">或上传本地图片</label>
+                            <input type="file" class="form-control" name="image_file" accept="image/*">
+                            <small class="text-muted">支持 JPG/PNG/GIF/WebP，大小不超过5MB。上传后将覆盖上方图片URL。</small>
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label">产品描述</label>
                             <textarea class="form-control markdown-editor" name="description" id="add_description" rows="5"></textarea>
                         </div>
@@ -362,7 +456,7 @@ $allTags = $productObj->getAllTags();
                     <h5 class="modal-title">编辑产品</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST" id="editProductForm" onsubmit="syncEditEditors()">
+                <form method="POST" id="editProductForm" onsubmit="syncEditEditors()" enctype="multipart/form-data">
                     <div class="modal-body">
                         <input type="hidden" name="action" value="update">
                         <input type="hidden" name="product_id" id="edit_product_id">
@@ -403,6 +497,11 @@ $allTags = $productObj->getAllTags();
                         <div class="mb-3">
                             <label class="form-label">产品图片URL</label>
                             <input type="url" class="form-control" name="image_url" id="edit_image_url">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">或上传本地图片</label>
+                            <input type="file" class="form-control" name="image_file" accept="image/*">
+                            <small class="text-muted">支持 JPG/PNG/GIF/WebP，大小不超过5MB。上传后将覆盖上方图片URL。</small>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">产品描述</label>

@@ -46,9 +46,6 @@ class Markdown
     {
         if (self::$parser === null) {
             self::$parser = new Parsedown();
-            if (method_exists(self::$parser, 'setSafeMode')) {
-                self::$parser->setSafeMode(true);
-            }
         }
 
         return self::$parser;

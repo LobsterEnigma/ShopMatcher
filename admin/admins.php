@@ -179,7 +179,10 @@ $admins = $admin->getAllAdmins();
                             <i class="fas fa-users"></i> 用户管理
                         </a>
                         <a class="nav-link" href="products.php">
-                            <i class="fas fa-box"></i> 产品管理
+                            <i class="fas fa-gamepad"></i> 产品管理
+                        </a>
+                        <a class="nav-link" href="categories.php">
+                            <i class="fas fa-tags"></i> 分类管理
                         </a>
                         <a class="nav-link" href="chat.php">
                             <i class="fas fa-comments"></i> 聊天管理

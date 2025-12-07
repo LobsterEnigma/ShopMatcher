@@ -30,6 +30,19 @@ if ($_POST && isset($_POST['change_password'])) {
         }
     }
 }
+
+// 处理用户名修改
+if ($_POST && isset($_POST['change_username'])) {
+    $newUsername = $_POST['new_username'] ?? '';
+    $result = $user->updateUsername($_SESSION['user_id'], $newUsername);
+    if ($result['success']) {
+        $success = $result['message'];
+        // 刷新用户信息用于展示
+        $userInfo = $user->getUserInfo($_SESSION['user_id']);
+    } else {
+        $error = $result['message'];
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -145,6 +158,27 @@ if ($_POST && isset($_POST['change_password'])) {
             </div>
             
             <div class="col-md-8">
+                <!-- 修改用户名 -->
+                <div class="profile-card mb-4">
+                    <div class="p-4">
+                        <h5><i class="fas fa-user-edit"></i> 修改用户名</h5>
+                        
+                        <form method="POST" class="row g-3">
+                            <div class="col-md-8">
+                                <label for="new_username" class="form-label">新的用户名</label>
+                                <input type="text" class="form-control" id="new_username" name="new_username" 
+                                       value="<?php echo htmlspecialchars($userInfo['username']); ?>" required minlength="3">
+                                <div class="form-text">至少3个字符，需唯一。</div>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button type="submit" name="change_username" class="btn btn-primary w-100">
+                                    <i class="fas fa-save"></i> 保存用户名
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
                 <!-- 修改密码 -->
                 <div class="profile-card mb-4">
                     <div class="p-4">

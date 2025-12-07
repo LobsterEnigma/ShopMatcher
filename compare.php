@@ -11,8 +11,9 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$productIds = explode(',', $_GET['ids'] ?? '');
+$productIds = array_values(array_filter(array_unique(array_map('intval', explode(',', $_GET['ids'] ?? '')))));
 if (count($productIds) < 2) {
+    $_SESSION['compare_error'] = '请至少选择2个产品进行对比';
     header('Location: products.php');
     exit;
 }
@@ -21,7 +22,7 @@ $productObj = new Product();
 $result = $productObj->compareProducts($productIds, $_SESSION['user_id']);
 
 if (!$result['success']) {
-    $_SESSION['error'] = $result['message'];
+    $_SESSION['compare_error'] = $result['message'];
     header('Location: products.php');
     exit;
 }

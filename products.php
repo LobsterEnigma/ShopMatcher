@@ -40,6 +40,9 @@ $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // 获取所有有产品关联的标签（只显示实际使用的标签）
 $allTags = $productObj->getActiveTags();
+
+// 获取当前用户的对比限制
+$compareLimits = $productObj->getCompareLimitsForUser($_SESSION['user_id'] ?? null);
 ?>
 
 <!DOCTYPE html>
@@ -160,6 +163,22 @@ $allTags = $productObj->getActiveTags();
             </div>
             <?php endif; ?>
         </div>
+
+        <?php if (isset($_SESSION['compare_error'])): ?>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($_SESSION['compare_error']); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['compare_error']); ?>
+        <?php endif; ?>
+
+        <?php if (isset($_SESSION['compare_success'])): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($_SESSION['compare_success']); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['compare_success']); ?>
+        <?php endif; ?>
         
         <!-- 筛选区域 -->
         <div class="filter-section">
@@ -221,14 +240,14 @@ $allTags = $productObj->getActiveTags();
         <!-- 产品列表 -->
         <div class="row" id="productsContainer">
             <?php foreach ($products as $product): ?>
-            <div class="col-md-4 mb-4 product-item" data-price="<?php echo $product['price']; ?>" data-name="<?php echo strtolower($product['name']); ?>">
+            <div class="col-md-4 mb-4 product-item" data-id="<?php echo $product['id']; ?>" data-price="<?php echo $product['price']; ?>" data-name="<?php echo strtolower($product['name']); ?>">
                 <div class="card product-card h-100 position-relative">
                     <?php if ($product['image_url']): ?>
                     <img src="<?php echo htmlspecialchars($product['image_url']); ?>" class="card-img-top" alt="<?php echo htmlspecialchars($product['name']); ?>" style="height: 200px; object-fit: cover;">
                     <?php endif; ?>
                     
                     <!-- 对比按钮 -->
-                    <button class="btn btn-sm btn-outline-primary compare-btn" onclick="toggleCompare(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['name']); ?>')">
+                    <button class="btn btn-sm btn-outline-primary compare-btn" data-id="<?php echo $product['id']; ?>" onclick="toggleCompare(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['name']); ?>')">
                         <i class="fas fa-plus"></i> 对比
                     </button>
                     
@@ -298,6 +317,9 @@ $allTags = $productObj->getActiveTags();
             <button class="btn btn-outline-secondary btn-sm" onclick="clearSelection()">
                 <i class="fas fa-trash"></i> 清空
             </button>
+            <div class="text-muted small mt-2">
+                今日已用 <?php echo $compareLimits['today']; ?>/<?php echo $compareLimits['max_daily']; ?> 次，单次最多可对比 <?php echo $compareLimits['max_products']; ?> 个产品
+            </div>
         </div>
     </div>
 
@@ -323,8 +345,32 @@ $allTags = $productObj->getActiveTags();
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        const productsData = <?php echo json_encode($products, JSON_UNESCAPED_UNICODE); ?>;
+        const productMap = {};
+        productsData.forEach(p => { productMap[p.id] = {id: p.id, name: p.name}; });
+
         let selectedProducts = [];
-        const maxCompare = <?php echo isset($_SESSION['user_id']) && isset($_SESSION['vip_level']) ? 10 : 2; ?>;
+        const maxCompare = <?php echo (int)$compareLimits['max_products']; ?>;
+
+        // 从 localStorage 载入对比列表
+        function loadCompareFromStorage() {
+            const stored = localStorage.getItem('compareList');
+            if (!stored) return;
+            try {
+                const ids = JSON.parse(stored);
+                if (Array.isArray(ids)) {
+                    selectedProducts = ids
+                        .filter(id => Number.isInteger(id) || typeof id === 'number')
+                        .map(id => productMap[id] || {id, name: `产品 #${id}`});
+                }
+            } catch (e) {
+                console.warn('compareList parse error', e);
+            }
+        }
+
+        function syncCompareStorage() {
+            localStorage.setItem('compareList', JSON.stringify(selectedProducts.map(p => p.id)));
+        }
         
         function toggleCompare(productId, productName) {
             const index = selectedProducts.findIndex(p => p.id === productId);
@@ -342,6 +388,7 @@ $allTags = $productObj->getActiveTags();
             }
             
             updateSelectedProducts();
+            syncCompareStorage();
         }
         
         function updateSelectedProducts() {
@@ -366,16 +413,28 @@ $allTags = $productObj->getActiveTags();
             } else {
                 container.style.display = 'none';
             }
+
+            // 同步按钮选中状态
+            document.querySelectorAll('.compare-btn').forEach(btn => {
+                const id = parseInt(btn.dataset.id, 10);
+                if (!id) return;
+                const chosen = selectedProducts.some(p => p.id === id);
+                btn.classList.toggle('btn-primary', chosen);
+                btn.classList.toggle('btn-outline-primary', !chosen);
+                btn.innerHTML = chosen ? '<i class="fas fa-check"></i> 已选' : '<i class="fas fa-plus"></i> 对比';
+            });
         }
         
         function removeFromCompare(productId) {
             selectedProducts = selectedProducts.filter(p => p.id !== productId);
             updateSelectedProducts();
+            syncCompareStorage();
         }
         
         function clearSelection() {
             selectedProducts = [];
             updateSelectedProducts();
+            syncCompareStorage();
         }
         
         function startCompare() {
@@ -538,6 +597,12 @@ $allTags = $productObj->getActiveTags();
             if (e.key === 'Enter') {
                 searchProducts();
             }
+        });
+
+        // 页面加载时恢复对比列表
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCompareFromStorage();
+            updateSelectedProducts();
         });
     </script>
 </body>

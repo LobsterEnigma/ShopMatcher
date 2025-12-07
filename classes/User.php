@@ -122,6 +122,33 @@ class User {
         }
         return false;
     }
+
+    // 更新用户名（唯一性检查）
+    public function updateUsername($userId, $newUsername) {
+        $newUsername = trim($newUsername);
+        if ($newUsername === '' || strlen($newUsername) < 3) {
+            return ['success' => false, 'message' => '用户名至少3个字符'];
+        }
+
+        $pdo = $this->db->getConnection();
+
+        // 检查是否被占用（排除自己）
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
+        $stmt->execute([$newUsername, $userId]);
+        if ($stmt->fetch(PDO::FETCH_ASSOC)) {
+            return ['success' => false, 'message' => '用户名已被占用'];
+        }
+
+        // 更新
+        $stmt = $pdo->prepare("UPDATE users SET username = ? WHERE id = ?");
+        if ($stmt->execute([$newUsername, $userId])) {
+            // 更新会话，以便导航栏等处立即生效
+            $_SESSION['username'] = $newUsername;
+            return ['success' => true, 'message' => '用户名已更新'];
+        }
+
+        return ['success' => false, 'message' => '更新失败，请稍后重试'];
+    }
     
     // 检查VIP状态
     public function isVip($userId) {

@@ -112,11 +112,39 @@ class Product {
     // 产品对比
     public function compareProducts($productIds, $userId) {
         $pdo = $this->db->getConnection();
+
+        // 清洗产品ID：去重、转为整数、移除无效值
+        $productIds = array_values(array_filter(array_unique(array_map('intval', $productIds))));
+        if (count($productIds) < 2) {
+            return ['success' => false, 'message' => '请至少选择2个产品进行对比'];
+        }
         
-        // 检查用户对比权限
+        // 获取用户对比信息与限制
         $user = $this->getUserComparisonInfo($userId);
-        if (!$this->canCompare($user, count($productIds))) {
-            return ['success' => false, 'message' => '对比权限不足'];
+        if (!$user) {
+            return ['success' => false, 'message' => '用户信息异常，请重新登录'];
+        }
+        
+        $isVip = $user['vip_level'] > 0 && (!$user['vip_expire_date'] || strtotime($user['vip_expire_date']) > time());
+        $maxProducts = $this->getSettingInt(
+            $isVip 
+                ? ['max_products_compare', 'max_products_compare_vip', 'max_products_compare_normal']
+                : ['max_products_compare', 'max_products_compare_normal', 'max_products_compare_vip'],
+            $isVip ? 10 : 2
+        );
+        $maxDaily = $this->getSettingInt(
+            $isVip 
+                ? ['max_comparison_per_day', 'max_comparison_per_day_vip', 'max_comparison_per_day_normal']
+                : ['max_comparison_per_day', 'max_comparison_per_day_normal', 'max_comparison_per_day_vip'],
+            $isVip ? 20 : 5
+        );
+        
+        if (count($productIds) > $maxProducts) {
+            return ['success' => false, 'message' => "最多同时对比{$maxProducts}个产品"];
+        }
+        
+        if (($user['today_comparisons'] ?? 0) >= $maxDaily) {
+            return ['success' => false, 'message' => "今日对比次数已达上限 ({$maxDaily}次)" ];
         }
         
         // 获取产品信息
@@ -137,7 +165,50 @@ class Product {
         $userObj = new User();
         $userObj->addPoints($userId, POINTS_COMPARISON, '产品对比');
         
-        return ['success' => true, 'products' => $products];
+        return ['success' => true, 'products' => $products, 'limits' => ['max_products' => $maxProducts, 'max_daily' => $maxDaily, 'today' => $user['today_comparisons'] ?? 0]];
+    }
+
+    // 获取指定用户的对比限制（前端提示用）
+    public function getCompareLimitsForUser($userId = null) {
+        $user = null;
+        if ($userId) {
+            $user = $this->getUserComparisonInfo($userId);
+        } else {
+            $user = [
+                'vip_level' => 0,
+                'vip_expire_date' => null,
+                'today_comparisons' => 0
+            ];
+        }
+
+        if (!$user) {
+            $user = [
+                'vip_level' => 0,
+                'vip_expire_date' => null,
+                'today_comparisons' => 0
+            ];
+        }
+
+        $isVip = $user['vip_level'] > 0 && (!$user['vip_expire_date'] || strtotime($user['vip_expire_date']) > time());
+        $maxProducts = $this->getSettingInt(
+            $isVip 
+                ? ['max_products_compare', 'max_products_compare_vip', 'max_products_compare_normal']
+                : ['max_products_compare', 'max_products_compare_normal', 'max_products_compare_vip'],
+            $isVip ? 10 : 2
+        );
+        $maxDaily = $this->getSettingInt(
+            $isVip 
+                ? ['max_comparison_per_day', 'max_comparison_per_day_vip', 'max_comparison_per_day_normal']
+                : ['max_comparison_per_day', 'max_comparison_per_day_normal', 'max_comparison_per_day_vip'],
+            $isVip ? 20 : 5
+        );
+
+        return [
+            'is_vip' => $isVip,
+            'max_products' => $maxProducts,
+            'max_daily' => $maxDaily,
+            'today' => $user['today_comparisons'] ?? 0
+        ];
     }
     
     // 获取用户对比信息
@@ -157,25 +228,13 @@ class Product {
     }
     
     // 检查是否可以对比
-    private function canCompare($user, $productCount) {
-        $isVip = $user['vip_level'] > 0 && (!$user['vip_expire_date'] || strtotime($user['vip_expire_date']) > time());
-        
-        if ($isVip) {
-            $maxProducts = 10;
-            $maxDaily = 20;
-        } else {
-            $maxProducts = 2;
-            $maxDaily = 5;
-        }
-        
+    private function canCompare($user, $productCount, $maxProducts, $maxDaily) {
         if ($productCount > $maxProducts) {
             return false;
         }
-        
-        if ($user['today_comparisons'] >= $maxDaily) {
+        if (($user['today_comparisons'] ?? 0) >= $maxDaily) {
             return false;
         }
-        
         return true;
     }
     
@@ -309,6 +368,17 @@ class Product {
         $stmt->execute([$key]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         return $result ? $result['setting_value'] : $default;
+    }
+
+    // 读取整数配置，支持优先级列表
+    private function getSettingInt(array $keys, $default) {
+        foreach ($keys as $key) {
+            $value = $this->getSetting($key, null);
+            if ($value !== null && $value !== '') {
+                return (int)$value;
+            }
+        }
+        return (int)$default;
     }
     
     // ========== 标签相关方法 ==========
