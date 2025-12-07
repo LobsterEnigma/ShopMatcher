@@ -1,5 +1,5 @@
 name: Feature Request
-description: New feature or request
+description: New feature or enhancement request
 title: "[Feature] "
 labels:
   - enhancement
@@ -19,13 +19,13 @@ body:
   - type: textarea
     id: motivation
     attributes:
-      label: 为什么需要这个功能？
-      placeholder: 请说明此功能解决什么痛点
+      label: Why Do You Need This Feature?
+      placeholder: Explain the problem or use-case that this feature addresses
     validations:
       required: true
 
   - type: textarea
     id: proposal
     attributes:
-      label: 你的功能建议
-      placeholder: 请描述你希望的功能行为
+      label: Feature Proposal
+      placeholder: Describe the behavior or functionality you would like to see
