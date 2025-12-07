@@ -19,21 +19,21 @@ body:
   - type: input
     id: steps
     attributes:
-      label: 复现步骤
-      placeholder: 简要描述如何重现问题
+      label: Steps to Reproduce
+      placeholder: Describe how to reproduce the issue
     validations:
       required: true
 
   - type: textarea
     id: description
     attributes:
-      label: 详细描述
-      placeholder: 请详细描述你遇到的问题
+      label: Detailed Description
+      placeholder: Provide a detailed explanation of the issue
     validations:
       required: true
 
   - type: textarea
     id: logs
     attributes:
-      label: 日志信息
-      placeholder: 如有错误日志，请贴在这里
+      label: Logs / Error Messages
+      placeholder: Paste any relevant logs or error messages here
