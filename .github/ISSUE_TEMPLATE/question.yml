@@ -1,0 +1,23 @@
+name: Question
+description: Further information is requested
+title: "[Question] "
+labels:
+  - question
+  - need-triage
+body:
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Priority High
+        - Priority Middle
+        - Priority Low
+
+  - type: textarea
+    id: question
+    attributes:
+      label: 你的问题是什么？
+      placeholder: 请尽量详细描述你的疑问
+    validations:
+      required: true
