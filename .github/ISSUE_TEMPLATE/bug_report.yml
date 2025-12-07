@@ -1,0 +1,21 @@
+name: Bug Report
+description: 提交一个错误报告
+title: "[Bug] "
+labels:
+  - need-triage
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: 概要
+      placeholder: 简述问题
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 详细描述
+      placeholder: 请尽量详细填写
+    validations:
+      required: true
