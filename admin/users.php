@@ -124,6 +124,9 @@ $totalPages = ceil($totalUsers / $limit);
                         <a class="nav-link" href="settings.php">
                             <i class="fas fa-cog"></i> 系统设置
                         </a>
+                        <a class="nav-link" href="guide.php">
+                            <i class="fas fa-book"></i> 指南管理
+                        </a>
                         <a class="nav-link" href="admins.php">
                             <i class="fas fa-user-shield"></i> 管理员
                         </a>

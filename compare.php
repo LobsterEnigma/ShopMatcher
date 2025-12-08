@@ -94,6 +94,140 @@ $products = $result['products'];
             padding: 20px;
             margin-bottom: 30px;
         }
+        /* 首次使用提示框样式 */
+        .guide-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+        .guide-modal {
+            background: white;
+            border-radius: 20px;
+            padding: 0;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.4s ease;
+            overflow-x: hidden;
+        }
+        @media (max-width: 768px) {
+            .guide-modal {
+                width: 95%;
+                max-height: 85vh;
+            }
+            .guide-modal-header h3 {
+                font-size: 1.4rem;
+            }
+            .guide-modal-body {
+                padding: 30px 20px;
+            }
+            .guide-modal-footer {
+                flex-direction: column;
+                padding: 20px;
+            }
+            .guide-modal-footer .btn {
+                width: 100%;
+            }
+        }
+        .guide-modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+        .guide-modal-header h3 {
+            margin: 0;
+            font-size: 1.8rem;
+        }
+        .guide-modal-header .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.3s;
+        }
+        .guide-modal-header .close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(90deg);
+        }
+        .guide-modal-body {
+            padding: 40px;
+            text-align: center;
+        }
+        .guide-modal-body .icon {
+            font-size: 4rem;
+            color: #667eea;
+            margin-bottom: 20px;
+            animation: bounce 1s ease infinite;
+        }
+        .guide-modal-body h4 {
+            color: #495057;
+            margin-bottom: 15px;
+        }
+        .guide-modal-body p {
+            color: #6c757d;
+            line-height: 1.8;
+            margin-bottom: 30px;
+        }
+        .guide-modal-footer {
+            padding: 20px 40px 40px;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+        .guide-modal-footer .btn {
+            padding: 12px 30px;
+            font-size: 1rem;
+            border-radius: 25px;
+            transition: all 0.3s;
+        }
+        .guide-modal-footer .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .guide-modal-footer .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .guide-modal-footer .btn-outline-secondary:hover {
+            transform: translateY(-2px);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
     </style>
 </head>
 <body>
@@ -119,6 +253,36 @@ $products = $result['products'];
             </div>
         </div>
     </nav>
+
+    <!-- 首次使用提示框 -->
+    <div id="guideModal" class="guide-modal-overlay" style="display: none;">
+        <div class="guide-modal">
+            <div class="guide-modal-header">
+                <button class="close-btn" onclick="closeGuideModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+                <h3><i class="fas fa-lightbulb"></i> 欢迎使用对比功能！</h3>
+            </div>
+            <div class="guide-modal-body">
+                <div class="icon">
+                    <i class="fas fa-book-open"></i>
+                </div>
+                <h4>第一次使用产品对比？</h4>
+                <p>
+                    我们为您准备了详细的使用指南，帮助您快速了解如何使用对比功能，<br>
+                    找到最适合您的产品。建议您先查看指南，这样能更好地使用对比功能。
+                </p>
+            </div>
+            <div class="guide-modal-footer">
+                <a href="guide.php" class="btn btn-primary">
+                    <i class="fas fa-book"></i> 查看指南列表
+                </a>
+                <button class="btn btn-outline-secondary" onclick="closeGuideModal()">
+                    <i class="fas fa-times"></i> 稍后查看
+                </button>
+            </div>
+        </div>
+    </div>
 
     <div class="container my-5">
         <div class="row">
@@ -262,6 +426,38 @@ $products = $result['products'];
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // 检查是否首次使用对比功能
+        function checkFirstTimeCompare() {
+            const userId = <?php echo $_SESSION['user_id']; ?>;
+            const storageKey = 'guide_shown_user_' + userId;
+            const hasSeenGuide = localStorage.getItem(storageKey);
+            
+            if (!hasSeenGuide) {
+                // 显示提示框
+                document.getElementById('guideModal').style.display = 'flex';
+            }
+        }
+        
+        // 关闭提示框
+        function closeGuideModal() {
+            const userId = <?php echo $_SESSION['user_id']; ?>;
+            const storageKey = 'guide_shown_user_' + userId;
+            localStorage.setItem(storageKey, 'true');
+            document.getElementById('guideModal').style.display = 'none';
+        }
+        
+        // 点击遮罩层关闭
+        document.getElementById('guideModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeGuideModal();
+            }
+        });
+        
+        // 页面加载时检查
+        document.addEventListener('DOMContentLoaded', function() {
+            checkFirstTimeCompare();
+        });
+        
         function shareResult(platform) {
             const url = window.location.href;
             const title = '产品对比结果';

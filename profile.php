@@ -155,6 +155,19 @@ if ($_POST && isset($_POST['change_username'])) {
                         </div>
                     </div>
                 </div>
+                
+                <!-- 指南 -->
+                <div class="profile-card">
+                    <div class="p-4">
+                        <h6><i class="fas fa-book"></i> 使用指南</h6>
+                        <p class="text-muted small mb-3">查看产品对比功能的使用教程和技巧</p>
+                        <div class="d-grid">
+                            <a href="guide.php" class="btn btn-outline-info">
+                                <i class="fas fa-book-open"></i> 查看指南
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <div class="col-md-8">
