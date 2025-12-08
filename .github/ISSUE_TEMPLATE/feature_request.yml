@@ -1,0 +1,31 @@
+name: Feature Request
+description: New feature or enhancement request
+title: "[Feature] "
+labels:
+  - enhancement
+  - need-triage
+body:
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Priority High
+        - Priority Middle
+        - Priority Low
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Why Do You Need This Feature?
+      placeholder: Explain the problem or use-case that this feature addresses
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Feature Proposal
+      placeholder: Describe the behavior or functionality you would like to see

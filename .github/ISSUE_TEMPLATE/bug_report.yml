@@ -1,0 +1,39 @@
+name: Bug Report
+description: Something isn't working
+title: "[Bug] "
+labels:
+  - bug
+  - need-triage
+body:
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Priority High
+        - Priority Middle
+        - Priority Low
+    validations:
+      required: true
+
+  - type: input
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      placeholder: Describe how to reproduce the issue
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Detailed Description
+      placeholder: Provide a detailed explanation of the issue
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Error Messages
+      placeholder: Paste any relevant logs or error messages here

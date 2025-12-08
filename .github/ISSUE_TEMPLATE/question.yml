@@ -1,0 +1,23 @@
+name: Question
+description: Request for further information or clarification
+title: "[Question] "
+labels:
+  - question
+  - need-triage
+body:
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Priority High
+        - Priority Middle
+        - Priority Low
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      placeholder: Describe your question in as much detail as possible
+    validations:
+      required: true
