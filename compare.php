@@ -387,6 +387,18 @@ $products = $result['products'];
                                 </tr>
                                 <?php endif; ?>
                                 
+                                <!-- 常见问题 -->
+                                <?php if (!empty($products[0]['faq'])): ?>
+                                <tr class="comparison-row">
+                                    <td class="feature-label">常见问题</td>
+                                    <?php foreach ($products as $product): ?>
+                                    <td class="feature-value markdown-content">
+                                        <?php echo Markdown::toHtml($product['faq']); ?>
+                                    </td>
+                                    <?php endforeach; ?>
+                                </tr>
+                                <?php endif; ?>
+                                
                                 
                                 <!-- 操作按钮 -->
                                 <tr class="comparison-row">

@@ -412,7 +412,7 @@ $allTags = $productObj->getAllTags();
                         </div>
                         <div class="mb-3">
                             <label class="form-label">产品图片URL</label>
-                            <input type="url" class="form-control" name="image_url">
+                            <input type="text" class="form-control" name="image_url" placeholder="支持完整网址或/开头的相对路径">
                         </div>
                         <div class="mb-3">
                             <label class="form-label">或上传本地图片</label>
@@ -499,7 +499,7 @@ $allTags = $productObj->getAllTags();
                         </div>
                         <div class="mb-3">
                             <label class="form-label">产品图片URL</label>
-                            <input type="url" class="form-control" name="image_url" id="edit_image_url">
+                            <input type="text" class="form-control" name="image_url" id="edit_image_url" placeholder="支持完整网址或/开头的相对路径">
                         </div>
                         <div class="mb-3">
                             <label class="form-label">或上传本地图片</label>
@@ -552,7 +552,7 @@ $allTags = $productObj->getAllTags();
         // EasyMDE配置
         const editorConfig = {
             spellChecker: false,
-            placeholder: '支持Markdown语法，输入内容后可以点击预览查看效果...',
+            placeholder: '输入内容后可以点击预览查看效果...',
             status: ['lines', 'words', 'cursor'],
             toolbar: [
                 'bold', 'italic', 'heading', '|',
