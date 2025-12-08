@@ -7,8 +7,9 @@ require_once 'classes/Markdown.php';
 $productObj = new Product();
 $categoryId = $_GET['category'] ?? null;
 $tagName = isset($_GET['tag']) ? urldecode($_GET['tag']) : null;
+$brandName = isset($_GET['brand']) ? urldecode($_GET['brand']) : null;
 
-// 根据标签或分类获取产品
+// 根据标签、品牌或分类获取产品
 if ($tagName) {
     // 如果选择了标签，获取该标签下的产品
     $products = $productObj->getProductsByTagName($tagName);
@@ -18,9 +19,23 @@ if ($tagName) {
         $products = array_filter($products, function($product) use ($categoryId) {
             return $product['category_id'] == $categoryId;
         });
-        // 重新索引数组
         $products = array_values($products);
     }
+    
+    // 如果同时选择了品牌，进一步筛选
+    if ($brandName) {
+        $products = array_filter($products, function($product) use ($brandName) {
+            return $product['brand'] == $brandName;
+        });
+        $products = array_values($products);
+    }
+} elseif ($brandName) {
+    // 如果只选择了品牌，获取该品牌的产品
+    $products = $productObj->getAllProducts($categoryId);
+    $products = array_filter($products, function($product) use ($brandName) {
+        return $product['brand'] == $brandName;
+    });
+    $products = array_values($products);
 } else {
     // 否则按分类获取
     $products = $productObj->getAllProducts($categoryId);
@@ -40,6 +55,11 @@ $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // 获取所有有产品关联的标签（只显示实际使用的标签）
 $allTags = $productObj->getActiveTags();
+
+// 获取所有有产品的品牌（只显示实际使用的品牌）
+$stmt = $pdo->prepare("SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND brand != '' ORDER BY brand");
+$stmt->execute();
+$allBrands = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // 获取当前用户的对比限制
 $compareLimits = $productObj->getCompareLimitsForUser($_SESSION['user_id'] ?? null);
@@ -131,12 +151,30 @@ $compareLimits = $productObj->getCompareLimitsForUser($_SESSION['user_id'] ?? nu
     <div class="container my-5">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2 class="mb-0"><i class="fas fa-balance-scale"></i> 产品对比</h2>
-            <?php if ($tagName || $categoryId): ?>
+            <?php if ($tagName || $categoryId || $brandName): ?>
             <div>
                 <?php if ($tagName): ?>
                 <span class="badge bg-primary me-2">
                     <i class="fas fa-tag"></i> 标签：<?php echo htmlspecialchars($tagName); ?>
-                    <a href="products.php<?php echo $categoryId ? '?category=' . $categoryId : ''; ?>" class="text-white ms-2" style="text-decoration: none;">
+                    <a href="products.php<?php 
+                        $params = [];
+                        if ($categoryId) $params[] = 'category=' . $categoryId;
+                        if ($brandName) $params[] = 'brand=' . urlencode($brandName);
+                        echo $params ? '?' . implode('&', $params) : '';
+                    ?>" class="text-white ms-2" style="text-decoration: none;">
+                        <i class="fas fa-times"></i>
+                    </a>
+                </span>
+                <?php endif; ?>
+                <?php if ($brandName): ?>
+                <span class="badge bg-success me-2">
+                    <i class="fas fa-trademark"></i> 品牌：<?php echo htmlspecialchars($brandName); ?>
+                    <a href="products.php<?php 
+                        $params = [];
+                        if ($categoryId) $params[] = 'category=' . $categoryId;
+                        if ($tagName) $params[] = 'tag=' . urlencode($tagName);
+                        echo $params ? '?' . implode('&', $params) : '';
+                    ?>" class="text-white ms-2" style="text-decoration: none;">
                         <i class="fas fa-times"></i>
                     </a>
                 </span>
@@ -154,7 +192,12 @@ $compareLimits = $productObj->getCompareLimitsForUser($_SESSION['user_id'] ?? nu
                     <?php if ($currentCategory): ?>
                     <span class="badge bg-info me-2">
                         <i class="fas fa-folder"></i> 分类：<?php echo htmlspecialchars($currentCategory['name']); ?>
-                        <a href="products.php<?php echo $tagName ? '?tag=' . urlencode($tagName) : ''; ?>" class="text-white ms-2" style="text-decoration: none;">
+                        <a href="products.php<?php 
+                            $params = [];
+                            if ($tagName) $params[] = 'tag=' . urlencode($tagName);
+                            if ($brandName) $params[] = 'brand=' . urlencode($brandName);
+                            echo $params ? '?' . implode('&', $params) : '';
+                        ?>" class="text-white ms-2" style="text-decoration: none;">
                             <i class="fas fa-times"></i>
                         </a>
                     </span>
@@ -206,6 +249,17 @@ $compareLimits = $productObj->getCompareLimitsForUser($_SESSION['user_id'] ?? nu
                     </select>
                 </div>
                 <div class="col-md-2">
+                    <label class="form-label">品牌筛选</label>
+                    <select class="form-select" id="brandFilter" onchange="filterByBrand(this.value)">
+                        <option value="">全部品牌</option>
+                        <?php foreach ($allBrands as $brand): ?>
+                        <option value="<?php echo htmlspecialchars($brand['brand']); ?>" <?php echo $brandName == $brand['brand'] ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($brand['brand']); ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <label class="form-label">价格范围</label>
                     <select class="form-select" onchange="filterByPrice(this.value)">
                         <option value="">全部价格</option>
@@ -225,7 +279,7 @@ $compareLimits = $productObj->getCompareLimitsForUser($_SESSION['user_id'] ?? nu
                         <option value="name">按名称排序</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-2">
                     <label class="form-label">搜索产品</label>
                     <div class="input-group">
                         <input type="text" class="form-control" id="searchInput" placeholder="输入产品名称...">
@@ -499,7 +553,9 @@ $compareLimits = $productObj->getCompareLimitsForUser($_SESSION['user_id'] ?? nu
         
         function filterByCategory(categoryId) {
             const tagFilter = document.getElementById('tagFilter');
+            const brandFilter = document.getElementById('brandFilter');
             const tagName = tagFilter ? tagFilter.value : '';
+            const brandName = brandFilter ? brandFilter.value : '';
             let url = 'products.php';
             const params = [];
             
@@ -508,6 +564,9 @@ $compareLimits = $productObj->getCompareLimitsForUser($_SESSION['user_id'] ?? nu
             }
             if (tagName) {
                 params.push(`tag=${encodeURIComponent(tagName)}`);
+            }
+            if (brandName) {
+                params.push(`brand=${encodeURIComponent(brandName)}`);
             }
             
             if (params.length > 0) {
@@ -519,7 +578,9 @@ $compareLimits = $productObj->getCompareLimitsForUser($_SESSION['user_id'] ?? nu
         
         function filterByTag(tagName) {
             const categoryFilter = document.getElementById('categoryFilter');
+            const brandFilter = document.getElementById('brandFilter');
             const categoryId = categoryFilter ? categoryFilter.value : '';
+            const brandName = brandFilter ? brandFilter.value : '';
             let url = 'products.php';
             const params = [];
             
@@ -528,6 +589,34 @@ $compareLimits = $productObj->getCompareLimitsForUser($_SESSION['user_id'] ?? nu
             }
             if (tagName) {
                 params.push(`tag=${encodeURIComponent(tagName)}`);
+            }
+            if (brandName) {
+                params.push(`brand=${encodeURIComponent(brandName)}`);
+            }
+            
+            if (params.length > 0) {
+                url += '?' + params.join('&');
+            }
+            
+            window.location.href = url;
+        }
+        
+        function filterByBrand(brandName) {
+            const categoryFilter = document.getElementById('categoryFilter');
+            const tagFilter = document.getElementById('tagFilter');
+            const categoryId = categoryFilter ? categoryFilter.value : '';
+            const tagName = tagFilter ? tagFilter.value : '';
+            let url = 'products.php';
+            const params = [];
+            
+            if (categoryId) {
+                params.push(`category=${categoryId}`);
+            }
+            if (tagName) {
+                params.push(`tag=${encodeURIComponent(tagName)}`);
+            }
+            if (brandName) {
+                params.push(`brand=${encodeURIComponent(brandName)}`);
             }
             
             if (params.length > 0) {

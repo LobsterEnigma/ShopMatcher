@@ -256,6 +256,38 @@ class Database {
             )
         ");
         
+        // 指南表（支持多个文章，博客式）
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS guides (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title VARCHAR(200) NOT NULL,
+                slug VARCHAR(200) UNIQUE,
+                content TEXT NOT NULL,
+                excerpt TEXT,
+                is_active BOOLEAN DEFAULT 1,
+                view_count INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+        
+        // 为现有表添加新字段（如果不存在）
+        try {
+            $this->pdo->exec("ALTER TABLE guides ADD COLUMN slug VARCHAR(200)");
+        } catch (PDOException $e) {
+            // 字段已存在，忽略错误
+        }
+        try {
+            $this->pdo->exec("ALTER TABLE guides ADD COLUMN excerpt TEXT");
+        } catch (PDOException $e) {
+            // 字段已存在，忽略错误
+        }
+        try {
+            $this->pdo->exec("ALTER TABLE guides ADD COLUMN view_count INTEGER DEFAULT 0");
+        } catch (PDOException $e) {
+            // 字段已存在，忽略错误
+        }
+        
         // 插入默认数据
         $this->insertDefaultData();
     }
@@ -300,6 +332,53 @@ class Database {
                 ('e_payment_merchant_id', ''),
                 ('e_payment_merchant_key', '')
             ");
+            
+            // 插入默认指南内容
+            $defaultGuideContent = "# 产品对比使用指南
+
+## 欢迎使用产品对比功能！
+
+本指南将帮助您快速了解如何使用产品对比功能，找到最适合您的产品。
+
+## 如何使用对比功能
+
+### 第一步：选择产品
+在产品列表页面，点击产品卡片上的「对比」按钮，将产品添加到对比列表。
+
+### 第二步：开始对比
+选择至少2个产品后，点击右下角的「开始对比」按钮，即可查看详细的对比结果。
+
+### 第三步：查看对比结果
+对比页面会显示以下信息：
+- **价格对比**：清晰展示各产品的价格
+- **品牌信息**：了解产品品牌
+- **产品描述**：查看产品详细介绍
+- **产品特性**：对比各产品的特色功能
+- **技术规格**：查看详细的技术参数
+
+## 对比功能限制
+
+- **普通用户**：每日最多对比5次，单次最多对比2个产品
+- **VIP用户**：每日最多对比20次，单次最多对比10个产品
+
+## 小贴士
+
+1. 建议先浏览产品详情，了解基本信息后再进行对比
+2. 可以根据分类和标签筛选产品，快速找到目标产品
+3. 对比结果可以分享给朋友，一起讨论
+
+祝您使用愉快！";
+            
+            $defaultExcerpt = "本指南将帮助您快速了解如何使用产品对比功能，找到最适合您的产品。";
+            $defaultSlug = 'product-comparison-guide';
+            
+            // 检查是否已有指南
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM guides");
+            $stmt->execute();
+            if ($stmt->fetchColumn() == 0) {
+                $stmt = $this->pdo->prepare("INSERT INTO guides (title, slug, content, excerpt, is_active) VALUES (?, ?, ?, ?, 1)");
+                $stmt->execute(['产品对比使用指南', $defaultSlug, $defaultGuideContent, $defaultExcerpt]);
+            }
         }
     }
 }
