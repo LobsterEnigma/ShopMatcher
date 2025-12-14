@@ -273,10 +273,16 @@ $allTags = $productObj->getAllTags();
                         <a class="nav-link" href="guide.php">
                             <i class="fas fa-book"></i> 指南管理
                         </a>
+                        <a class="nav-link" href="comments.php">
+                            <i class="fas fa-comment-dots"></i> 评论管理
+                        </a>
+                        <a class="nav-link" href="product_comments.php">
+                            <i class="fas fa-star"></i> 站长点评
+                        </a>
                         <a class="nav-link" href="admins.php">
                             <i class="fas fa-user-shield"></i> 管理员
                         </a>
-                        <a class="nav-link" href="../logout.php">
+                        <a class="nav-link" href="logout.php">
                             <i class="fas fa-sign-out-alt"></i> 退出登录
                         </a>
                     </nav>
@@ -339,10 +345,13 @@ $allTags = $productObj->getAllTags();
                                             <?php echo date('Y-m-d', strtotime($product['created_at'])); ?>
                                         </small>
                                         <div class="btn-group btn-group-sm">
-                                            <button class="btn btn-outline-primary" onclick="editProduct(<?php echo $product['id']; ?>)">
+                                            <a href="product_comments.php?action=add&product_id=<?php echo $product['id']; ?>" class="btn btn-outline-info" title="添加点评">
+                                                <i class="fas fa-comment-dots"></i>
+                                            </a>
+                                            <button class="btn btn-outline-primary" onclick="editProduct(<?php echo $product['id']; ?>)" title="编辑">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <button class="btn btn-outline-danger" onclick="deleteProduct(<?php echo $product['id']; ?>)">
+                                            <button class="btn btn-outline-danger" onclick="deleteProduct(<?php echo $product['id']; ?>)" title="删除">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </div>

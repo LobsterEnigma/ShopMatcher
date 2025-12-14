@@ -131,10 +131,16 @@ $messages = $chat->getMessages(100);
                         <a class="nav-link" href="guide.php">
                             <i class="fas fa-book"></i> 指南管理
                         </a>
+                        <a class="nav-link" href="comments.php">
+                            <i class="fas fa-comment-dots"></i> 评论管理
+                        </a>
+                        <a class="nav-link" href="product_comments.php">
+                            <i class="fas fa-star"></i> 站长点评
+                        </a>
                         <a class="nav-link" href="admins.php">
                             <i class="fas fa-user-shield"></i> 管理员
                         </a>
-                        <a class="nav-link" href="../logout.php">
+                        <a class="nav-link" href="logout.php">
                             <i class="fas fa-sign-out-alt"></i> 退出登录
                         </a>
                     </nav>

@@ -167,11 +167,12 @@ $admins = $admin->getAllAdmins();
             <!-- 侧边栏 -->
             <div class="col-md-2 p-0">
                 <div class="sidebar">
-                    <div class="p-3">
-                        <h5 class="mb-0">后台管理</h5>
-                        <small>admin</small>
+                    <div class="p-4">
+                        <h4><i class="fas fa-cogs"></i> 后台管理</h4>
+                        <p class="text-light small"><?php echo htmlspecialchars($_SESSION['admin_username']); ?></p>
                     </div>
-                    <nav class="nav flex-column p-3">
+                    
+                    <nav class="nav flex-column px-3">
                         <a class="nav-link" href="index.php">
                             <i class="fas fa-tachometer-alt"></i> 仪表板
                         </a>
@@ -196,10 +197,16 @@ $admins = $admin->getAllAdmins();
                         <a class="nav-link" href="guide.php">
                             <i class="fas fa-book"></i> 指南管理
                         </a>
+                        <a class="nav-link" href="comments.php">
+                            <i class="fas fa-comment-dots"></i> 评论管理
+                        </a>
+                        <a class="nav-link" href="product_comments.php">
+                            <i class="fas fa-star"></i> 站长点评
+                        </a>
                         <a class="nav-link active" href="admins.php">
                             <i class="fas fa-user-shield"></i> 管理员
                         </a>
-                        <a class="nav-link" href="../logout.php">
+                        <a class="nav-link" href="logout.php">
                             <i class="fas fa-sign-out-alt"></i> 退出登录
                         </a>
                     </nav>
