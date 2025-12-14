@@ -166,13 +166,19 @@ if ($_POST) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function refreshCaptcha() {
-            // 这里应该调用后端生成新的验证码
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-            let result = '';
-            for (let i = 0; i < 4; i++) {
-                result += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            document.getElementById('captcha-display').textContent = result;
+            // 调用后端API生成新的验证码
+            fetch('api/refresh_captcha.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('captcha-display').textContent = data.captcha;
+                    }
+                })
+                .catch(error => {
+                    console.error('刷新验证码失败:', error);
+                    // 如果API调用失败，重新加载页面
+                    location.reload();
+                });
         }
     </script>
 </body>

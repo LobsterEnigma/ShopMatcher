@@ -271,6 +271,89 @@ class Database {
             )
         ");
         
+        // 产品站长点评表
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS product_admin_comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER NOT NULL,
+                admin_id INTEGER NOT NULL,
+                admin_name VARCHAR(100) NOT NULL,
+                comment TEXT NOT NULL,
+                is_active BOOLEAN DEFAULT 1,
+                display_order INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+                FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
+            )
+        ");
+        
+        // 产品用户评论表
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS product_comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                status VARCHAR(20) DEFAULT 'pending',
+                like_count INTEGER DEFAULT 0,
+                reply_count INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        ");
+        
+        // 评论点赞表
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS comment_likes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                comment_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (comment_id) REFERENCES product_comments(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                UNIQUE(comment_id, user_id)
+            )
+        ");
+        
+        // 评论回复表
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS comment_replies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                comment_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                reply_to_user_id INTEGER,
+                content TEXT NOT NULL,
+                status VARCHAR(20) DEFAULT 'pending',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (comment_id) REFERENCES product_comments(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (reply_to_user_id) REFERENCES users(id) ON DELETE SET NULL
+            )
+        ");
+        
+        // 评论举报表
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS comment_reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                comment_id INTEGER,
+                reply_id INTEGER,
+                user_id INTEGER NOT NULL,
+                reason TEXT NOT NULL,
+                status VARCHAR(20) DEFAULT 'pending',
+                admin_id INTEGER,
+                admin_note TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                processed_at DATETIME,
+                FOREIGN KEY (comment_id) REFERENCES product_comments(id) ON DELETE CASCADE,
+                FOREIGN KEY (reply_id) REFERENCES comment_replies(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE SET NULL
+            )
+        ");
+        
         // 为现有表添加新字段（如果不存在）
         try {
             $this->pdo->exec("ALTER TABLE guides ADD COLUMN slug VARCHAR(200)");

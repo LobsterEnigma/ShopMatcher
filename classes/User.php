@@ -192,8 +192,23 @@ class User {
     
     // 验证码验证
     private function verifyCaptcha($captcha) {
-        // 这里应该集成真实的验证码服务
-        return !empty($captcha);
+        // 检查验证码是否为空
+        if (empty($captcha)) {
+            return false;
+        }
+        
+        // 检查session中是否有验证码
+        if (!isset($_SESSION['captcha'])) {
+            return false;
+        }
+        
+        // 比较用户输入的验证码与session中存储的验证码（不区分大小写）
+        $isValid = strtoupper(trim($captcha)) === strtoupper(trim($_SESSION['captcha']));
+        
+        // 验证后清除session中的验证码（防止重复使用）
+        unset($_SESSION['captcha']);
+        
+        return $isValid;
     }
     
     // 记录登录尝试

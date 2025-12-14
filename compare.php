@@ -5,8 +5,9 @@ require_once 'classes/Product.php';
 require_once 'classes/User.php';
 require_once 'classes/Markdown.php';
 
-// 检查用户是否登录
+// 检查用户是否登录 - 对比功能需要注册用户
 if (!isset($_SESSION['user_id'])) {
+    $_SESSION['compare_error'] = '请先登录后再使用产品对比功能';
     header('Location: login.php');
     exit;
 }
@@ -28,6 +29,22 @@ if (!$result['success']) {
 }
 
 $products = $result['products'];
+
+// 获取每个产品的站长意见
+$db = new Database();
+$pdo = $db->getConnection();
+$adminCommentsMap = [];
+foreach ($productIds as $pid) {
+    $stmt = $pdo->prepare("
+        SELECT pac.*, a.username as admin_username 
+        FROM product_admin_comments pac
+        LEFT JOIN admins a ON pac.admin_id = a.id
+        WHERE pac.product_id = ? AND pac.is_active = 1
+        ORDER BY pac.display_order ASC, pac.created_at DESC
+    ");
+    $stmt->execute([$pid]);
+    $adminCommentsMap[$pid] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 ?>
 
 <!DOCTYPE html>
@@ -87,6 +104,24 @@ $products = $result['products'];
         .markdown-content ol {
             padding-left: 1.25rem;
             margin-bottom: 1rem;
+        }
+        .admin-comment-item {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .admin-comment-item::-webkit-scrollbar {
+            width: 6px;
+        }
+        .admin-comment-item::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        .admin-comment-item::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+        .admin-comment-item::-webkit-scrollbar-thumb:hover {
+            background: #555;
         }
         .comparison-stats {
             background: #f8f9fa;
@@ -399,13 +434,48 @@ $products = $result['products'];
                                 </tr>
                                 <?php endif; ?>
                                 
+                                <!-- 站长意见 -->
+                                <tr class="comparison-row">
+                                    <td class="feature-label">站长意见</td>
+                                    <?php foreach ($products as $product): ?>
+                                    <td class="feature-value">
+                                        <?php 
+                                        $comments = $adminCommentsMap[$product['id']] ?? [];
+                                        if (!empty($comments)): 
+                                            foreach ($comments as $comment): 
+                                        ?>
+                                        <div class="admin-comment-item mb-3 p-3 bg-light rounded border-start border-primary border-3">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <div>
+                                                    <strong class="text-primary">
+                                                        <i class="fas fa-user-shield"></i> <?php echo htmlspecialchars($comment['admin_name'] ?: $comment['admin_username']); ?>
+                                                    </strong>
+                                                    <small class="text-muted ms-2">
+                                                        <i class="fas fa-calendar"></i> <?php echo date('Y-m-d H:i', strtotime($comment['created_at'])); ?>
+                                                    </small>
+                                                </div>
+                                            </div>
+                                            <div class="markdown-content text-muted" style="font-size: 0.9rem;">
+                                                <?php echo Markdown::toHtml($comment['comment']); ?>
+                                            </div>
+                                        </div>
+                                        <?php 
+                                            endforeach;
+                                        else: 
+                                        ?>
+                                        <span class="text-muted">暂无站长意见</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <?php endforeach; ?>
+                                </tr>
                                 
                                 <!-- 操作按钮 -->
                                 <tr class="comparison-row">
                                     <td class="feature-label">操作</td>
                                     <?php foreach ($products as $product): ?>
                                     <td class="feature-value text-center">
-                                        <a href="product.php?id=<?php echo $product['id']; ?>" class="btn btn-primary btn-sm">
+                                        <a href="product.php?id=<?php echo $product['id']; ?>" 
+                                           class="btn btn-primary btn-sm">
                                             <i class="fas fa-eye"></i> 查看详情
                                         </a>
                                     </td>
@@ -469,6 +539,35 @@ $products = $result['products'];
         document.addEventListener('DOMContentLoaded', function() {
             checkFirstTimeCompare();
         });
+            
+            // 首次使用提示框相关（仅登录用户）
+            <?php if (isset($_SESSION['user_id'])): ?>
+            checkFirstTimeCompare();
+            
+            // 点击遮罩层关闭
+            const guideModal = document.getElementById('guideModal');
+            if (guideModal) {
+                guideModal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeGuideModal();
+                    }
+                });
+            }
+            <?php endif; ?>
+        });
+        
+        // 关闭提示框（仅登录用户）
+        <?php if (isset($_SESSION['user_id'])): ?>
+        function closeGuideModal() {
+            const userId = <?php echo $_SESSION['user_id']; ?>;
+            const storageKey = 'guide_shown_user_' + userId;
+            localStorage.setItem(storageKey, 'true');
+            const guideModal = document.getElementById('guideModal');
+            if (guideModal) {
+                guideModal.style.display = 'none';
+            }
+        }
+        <?php endif; ?>
         
         function shareResult(platform) {
             const url = window.location.href;
@@ -491,3 +590,4 @@ $products = $result['products'];
     </script>
 </body>
 </html>
+
