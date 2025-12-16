@@ -64,6 +64,11 @@ $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
             padding: 8px 16px;
             border-radius: 20px;
         }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
@@ -74,37 +79,33 @@ $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <i class="fas fa-gamepad"></i> <?php echo getSiteName(); ?>
             </a>
             
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain" aria-controls="navbarMain" aria-expanded="false" aria-label="切换导航">
                 <span class="navbar-toggler-icon"></span>
             </button>
             
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="index.php">首页</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="products.php">产品对比</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="chat.php">讨论区</a>
-                    </li>
+            <div class="collapse navbar-collapse" id="navbarMain">
+                <div class="navbar-nav me-auto">
+                    <a class="nav-link" href="index.php">首页</a>
+                    <a class="nav-link" href="products.php">产品对比</a>
                     <?php if (isset($_SESSION['user_id'])): ?>
-                    <li class="nav-item">
-                        <a class="nav-link" href="profile.php">个人中心</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="logout.php">退出</a>
-                    </li>
-                    <?php else: ?>
-                    <li class="nav-item">
-                        <a class="nav-link" href="login.php">登录</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="register.php">注册</a>
-                    </li>
+                    <a class="nav-link" href="chat.php">讨论区</a>
+                    <a class="nav-link" href="guide.php">使用指南</a>
+                    <a class="nav-link" href="profile.php">个人中心</a>
                     <?php endif; ?>
-                </ul>
+                </div>
+                
+                <div class="user-info">
+                    <?php if (isset($_SESSION['user_id'])): ?>
+                        <span class="text-light">
+                            <i class="fas fa-user"></i> 
+                            <?php echo htmlspecialchars($_SESSION['username'] ?? '用户'); ?>
+                        </span>
+                        <a href="logout.php" class="btn btn-outline-light btn-sm">退出</a>
+                    <?php else: ?>
+                        <a href="login.php" class="btn btn-outline-light me-2">登录</a>
+                        <a href="register.php" class="btn btn-primary">注册</a>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
     </nav>

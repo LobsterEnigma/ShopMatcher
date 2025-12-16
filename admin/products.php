@@ -141,20 +141,89 @@ if ($_POST) {
     exit;
 }
 
-// 获取产品列表
-$products = $productObj->getAllProducts();
-
-// 为每个产品添加标签信息
-foreach ($products as $key => $product) {
-    $products[$key]['tags'] = $productObj->getProductTags($product['id']);
-}
-
 // 获取分类
 $db = new Database();
 $pdo = $db->getConnection();
 $stmt = $pdo->prepare("SELECT * FROM categories ORDER BY name");
 $stmt->execute();
 $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// 获取系统设置（每页显示数量）
+$adminObj = new Admin();
+$systemSettings = $adminObj->getSystemSettings();
+$itemsPerPage = isset($_GET['per_page']) ? (int)$_GET['per_page'] : (isset($systemSettings['products_per_page']) ? (int)$systemSettings['products_per_page'] : 10);
+if ($itemsPerPage < 1) $itemsPerPage = 10;
+if ($itemsPerPage > 100) $itemsPerPage = 100;
+
+// 如果URL参数中指定了每页显示数量，且与系统设置不同，则更新系统设置
+if (isset($_GET['per_page']) && (int)$_GET['per_page'] != ($systemSettings['products_per_page'] ?? 10)) {
+    $adminObj->updateSystemSetting('products_per_page', $itemsPerPage);
+}
+
+// 获取当前分类筛选
+$selectedCategory = isset($_GET['category']) ? (int)$_GET['category'] : 0;
+$currentPage = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+
+// 获取产品列表（根据分类筛选）
+if ($selectedCategory > 0) {
+    $products = $productObj->getAllProducts($selectedCategory);
+} else {
+    $products = $productObj->getAllProducts();
+}
+
+// 为每个产品添加标签信息和分类名称
+foreach ($products as $key => $product) {
+    $products[$key]['tags'] = $productObj->getProductTags($product['id']);
+    // 获取分类名称
+    foreach ($categories as $cat) {
+        if ($cat['id'] == $product['category_id']) {
+            $products[$key]['category_name'] = $cat['name'];
+            break;
+        }
+    }
+}
+
+// 按分类分组产品
+$productsByCategory = [];
+foreach ($products as $product) {
+    $catId = $product['category_id'];
+    if (!isset($productsByCategory[$catId])) {
+        $productsByCategory[$catId] = [
+            'category' => null,
+            'products' => []
+        ];
+        // 查找分类信息
+        foreach ($categories as $cat) {
+            if ($cat['id'] == $catId) {
+                $productsByCategory[$catId]['category'] = $cat;
+                break;
+            }
+        }
+    }
+    $productsByCategory[$catId]['products'][] = $product;
+}
+
+// 计算分页
+$totalProducts = count($products);
+$totalPages = ceil($totalProducts / $itemsPerPage);
+$offset = ($currentPage - 1) * $itemsPerPage;
+$paginatedProducts = array_slice($products, $offset, $itemsPerPage);
+
+// 为分页后的产品添加标签信息（如果还没有）
+foreach ($paginatedProducts as $key => $product) {
+    if (!isset($product['tags'])) {
+        $paginatedProducts[$key]['tags'] = $productObj->getProductTags($product['id']);
+    }
+    // 确保有分类名称
+    if (!isset($product['category_name'])) {
+        foreach ($categories as $cat) {
+            if ($cat['id'] == $product['category_id']) {
+                $paginatedProducts[$key]['category_name'] = $cat['name'];
+                break;
+            }
+        }
+    }
+}
 
 // 获取所有标签（用于标签输入提示）
 $allTags = $productObj->getAllTags();
@@ -173,9 +242,42 @@ $allTags = $productObj->getAllTags();
     <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
     <style>
         .sidebar {
-            min-height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 16.666667%;
+            height: 100vh;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        .sidebar .nav {
+            flex: 1;
+            padding-bottom: 20px;
+        }
+        @media (max-width: 991.98px) {
+            .sidebar {
+                width: 100%;
+                position: relative;
+                height: auto;
+                min-height: auto;
+            }
+        }
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+        }
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.3);
+            border-radius: 3px;
+        }
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.5);
         }
         .sidebar .nav-link {
             color: rgba(255,255,255,0.8);
@@ -192,6 +294,17 @@ $allTags = $productObj->getAllTags();
         .main-content {
             background: #f8f9fa;
             min-height: 100vh;
+            width: 100%;
+        }
+        .content-wrapper {
+            margin-left: 16.666667%;
+            width: calc(100% - 16.666667%);
+        }
+        @media (max-width: 991.98px) {
+            .content-wrapper {
+                margin-left: 0;
+                width: 100%;
+            }
         }
         .navbar-admin {
             background: white;
@@ -199,10 +312,15 @@ $allTags = $productObj->getAllTags();
         }
         .product-card {
             background: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .product-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
         }
         /* Markdown编辑器样式 */
         .EasyMDEContainer {
@@ -238,60 +356,56 @@ $allTags = $productObj->getAllTags();
     </style>
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
-            <!-- 侧边栏 -->
-            <div class="col-md-2 p-0">
-                <div class="sidebar">
-                    <div class="p-4">
-                        <h4><i class="fas fa-cogs"></i> 后台管理</h4>
-                        <p class="text-light small"><?php echo htmlspecialchars($_SESSION['admin_username']); ?></p>
-                    </div>
-                    
-                    <nav class="nav flex-column px-3">
-                        <a class="nav-link" href="index.php">
-                            <i class="fas fa-tachometer-alt"></i> 仪表板
-                        </a>
-                        <a class="nav-link" href="users.php">
-                            <i class="fas fa-users"></i> 用户管理
-                        </a>
-                        <a class="nav-link active" href="products.php">
-                            <i class="fas fa-gamepad"></i> 产品管理
-                        </a>
-                        <a class="nav-link" href="categories.php">
-                            <i class="fas fa-tags"></i> 分类管理
-                        </a>
-                        <a class="nav-link" href="chat.php">
-                            <i class="fas fa-comments"></i> 聊天管理
-                        </a>
-                        <a class="nav-link" href="ai.php">
-                            <i class="fas fa-robot"></i> AI设置
-                        </a>
-                        <a class="nav-link" href="settings.php">
-                            <i class="fas fa-cog"></i> 系统设置
-                        </a>
-                        <a class="nav-link" href="guide.php">
-                            <i class="fas fa-book"></i> 指南管理
-                        </a>
-                        <a class="nav-link" href="comments.php">
-                            <i class="fas fa-comment-dots"></i> 评论管理
-                        </a>
-                        <a class="nav-link" href="product_comments.php">
-                            <i class="fas fa-star"></i> 站长点评
-                        </a>
-                        <a class="nav-link" href="admins.php">
-                            <i class="fas fa-user-shield"></i> 管理员
-                        </a>
-                        <a class="nav-link" href="logout.php">
-                            <i class="fas fa-sign-out-alt"></i> 退出登录
-                        </a>
-                    </nav>
-                </div>
-            </div>
-            
-            <!-- 主内容区 -->
-            <div class="col-md-10 p-0">
-                <div class="main-content">
+    <!-- 侧边栏 -->
+    <div class="sidebar">
+        <div class="p-4">
+            <h4><i class="fas fa-cogs"></i> 后台管理</h4>
+            <p class="text-light small"><?php echo htmlspecialchars($_SESSION['admin_username']); ?></p>
+        </div>
+        
+        <nav class="nav flex-column px-3">
+            <a class="nav-link" href="index.php">
+                <i class="fas fa-tachometer-alt"></i> 仪表板
+            </a>
+            <a class="nav-link" href="users.php">
+                <i class="fas fa-users"></i> 用户管理
+            </a>
+            <a class="nav-link active" href="products.php">
+                <i class="fas fa-gamepad"></i> 产品管理
+            </a>
+            <a class="nav-link" href="categories.php">
+                <i class="fas fa-tags"></i> 分类管理
+            </a>
+            <a class="nav-link" href="chat.php">
+                <i class="fas fa-comments"></i> 聊天管理
+            </a>
+            <a class="nav-link" href="ai.php">
+                <i class="fas fa-robot"></i> AI设置
+            </a>
+            <a class="nav-link" href="settings.php">
+                <i class="fas fa-cog"></i> 系统设置
+            </a>
+            <a class="nav-link" href="guide.php">
+                <i class="fas fa-book"></i> 指南管理
+            </a>
+            <a class="nav-link" href="comments.php">
+                <i class="fas fa-comment-dots"></i> 评论管理
+            </a>
+            <a class="nav-link" href="product_comments.php">
+                <i class="fas fa-star"></i> 站长点评
+            </a>
+            <a class="nav-link" href="admins.php">
+                <i class="fas fa-user-shield"></i> 管理员
+            </a>
+            <a class="nav-link" href="logout.php">
+                <i class="fas fa-sign-out-alt"></i> 退出登录
+            </a>
+        </nav>
+    </div>
+    
+    <!-- 主内容区 -->
+    <div class="content-wrapper">
+        <div class="main-content">
                     <!-- 顶部导航 -->
                     <nav class="navbar navbar-admin">
                         <div class="container-fluid">
@@ -323,35 +437,73 @@ $allTags = $productObj->getAllTags();
                         <?php unset($_SESSION['product_error']); ?>
                         <?php endif; ?>
                         
-                        <div class="row">
-                            <?php foreach ($products as $product): ?>
-                            <div class="col-md-6 col-lg-4 mb-4">
+                        <!-- 分类筛选和分页信息 -->
+                        <div class="card mb-3" style="border: none; box-shadow: 0 1px 4px rgba(0,0,0,0.08);">
+                            <div class="card-body py-2">
+                                <div class="row align-items-center g-2">
+                                    <div class="col-md-3">
+                                        <label class="form-label mb-0" style="font-size: 0.85rem;">按分类筛选：</label>
+                                        <select class="form-select form-select-sm" id="categoryFilter" onchange="filterByCategory()">
+                                            <option value="0" <?php echo $selectedCategory == 0 ? 'selected' : ''; ?>>全部分类</option>
+                                            <?php foreach ($categories as $category): ?>
+                                            <option value="<?php echo $category['id']; ?>" <?php echo $selectedCategory == $category['id'] ? 'selected' : ''; ?>>
+                                                <?php echo htmlspecialchars($category['name']); ?>
+                                            </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label mb-0" style="font-size: 0.85rem;">每页显示：</label>
+                                        <select class="form-select form-select-sm" id="itemsPerPage" onchange="changeItemsPerPage()">
+                                            <option value="10" <?php echo $itemsPerPage == 10 ? 'selected' : ''; ?>>10 个</option>
+                                            <option value="20" <?php echo $itemsPerPage == 20 ? 'selected' : ''; ?>>20 个</option>
+                                            <option value="30" <?php echo $itemsPerPage == 30 ? 'selected' : ''; ?>>30 个</option>
+                                            <option value="50" <?php echo $itemsPerPage == 50 ? 'selected' : ''; ?>>50 个</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 text-end">
+                                        <small class="text-muted" style="font-size: 0.8rem;">
+                                            共 <strong><?php echo $totalProducts; ?></strong> 个产品，第 <strong><?php echo $currentPage; ?></strong>/<strong><?php echo $totalPages; ?></strong> 页
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row g-3">
+                            <?php foreach ($paginatedProducts as $product): ?>
+                            <div class="col-md-6 col-lg-4 col-xl-3">
                                 <div class="product-card">
-                                    <div class="d-flex align-items-center mb-3">
+                                    <div class="d-flex align-items-center mb-2">
                                         <?php if ($product['image_url']): ?>
                                         <img src="<?php echo htmlspecialchars($product['image_url']); ?>" 
-                                             class="me-3" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px;" 
+                                             class="me-2" style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px; flex-shrink: 0;" 
                                              alt="<?php echo htmlspecialchars($product['name']); ?>">
                                         <?php endif; ?>
-                                        <div class="flex-grow-1">
-                                            <h6 class="mb-1"><?php echo htmlspecialchars($product['name']); ?></h6>
-                                            <p class="text-muted small mb-0"><?php echo htmlspecialchars($product['brand']); ?></p>
-                                            <span class="h6 text-primary">¥<?php echo number_format($product['price'], 2); ?></span>
+                                        <div class="flex-grow-1 min-w-0">
+                                            <h6 class="mb-1 text-truncate" style="font-size: 0.9rem; font-weight: 600;"><?php echo htmlspecialchars($product['name']); ?></h6>
+                                            <p class="text-muted mb-1" style="font-size: 0.75rem; line-height: 1.2;">
+                                                <?php echo htmlspecialchars($product['brand']); ?>
+                                                <?php if (isset($product['category_name'])): ?>
+                                                    <span class="badge bg-secondary ms-1" style="font-size: 0.7rem; padding: 2px 6px;"><?php echo htmlspecialchars($product['category_name']); ?></span>
+                                                <?php endif; ?>
+                                            </p>
+                                            <span class="text-primary fw-bold" style="font-size: 0.95rem;">¥<?php echo number_format($product['price'], 2); ?></span>
                                         </div>
                                     </div>
                                     
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <small class="text-muted">
+                                    <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                                        <small class="text-muted" style="font-size: 0.7rem;">
                                             <?php echo date('Y-m-d', strtotime($product['created_at'])); ?>
                                         </small>
                                         <div class="btn-group btn-group-sm">
-                                            <a href="product_comments.php?action=add&product_id=<?php echo $product['id']; ?>" class="btn btn-outline-info" title="添加点评">
+                                            <a href="product_comments.php?action=add&product_id=<?php echo $product['id']; ?>" class="btn btn-outline-info btn-sm" style="padding: 2px 8px; font-size: 0.75rem;" title="添加点评">
                                                 <i class="fas fa-comment-dots"></i>
                                             </a>
-                                            <button class="btn btn-outline-primary" onclick="editProduct(<?php echo $product['id']; ?>)" title="编辑">
+                                            <button class="btn btn-outline-primary btn-sm" style="padding: 2px 8px; font-size: 0.75rem;" onclick="editProduct(<?php echo $product['id']; ?>)" title="编辑">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <button class="btn btn-outline-danger" onclick="deleteProduct(<?php echo $product['id']; ?>)" title="删除">
+                                            <button class="btn btn-outline-danger btn-sm" style="padding: 2px 8px; font-size: 0.75rem;" onclick="deleteProduct(<?php echo $product['id']; ?>)" title="删除">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
@@ -361,16 +513,49 @@ $allTags = $productObj->getAllTags();
                             <?php endforeach; ?>
                         </div>
                         
-                        <?php if (empty($products)): ?>
+                        <?php if (empty($paginatedProducts)): ?>
                         <div class="text-center py-5">
                             <i class="fas fa-gamepad fa-3x text-muted mb-3"></i>
-                            <h4 class="text-muted">暂无产品</h4>
-                            <p class="text-muted">点击上方按钮添加第一个产品</p>
+                            <h4 class="text-muted"><?php echo $selectedCategory > 0 ? '该分类下暂无产品' : '暂无产品'; ?></h4>
+                            <p class="text-muted"><?php echo $selectedCategory > 0 ? '请选择其他分类或点击上方按钮添加产品' : '点击上方按钮添加第一个产品'; ?></p>
                         </div>
+                        <?php endif; ?>
+                        
+                        <!-- 分页导航 -->
+                        <?php if ($totalPages > 1): ?>
+                        <nav aria-label="产品分页">
+                            <ul class="pagination justify-content-center">
+                                <li class="page-item <?php echo $currentPage == 1 ? 'disabled' : ''; ?>">
+                                    <a class="page-link" href="?page=<?php echo $currentPage - 1; ?>&category=<?php echo $selectedCategory; ?>&per_page=<?php echo $itemsPerPage; ?>">上一页</a>
+                                </li>
+                                <?php
+                                $startPage = max(1, $currentPage - 2);
+                                $endPage = min($totalPages, $currentPage + 2);
+                                if ($startPage > 1): ?>
+                                    <li class="page-item"><a class="page-link" href="?page=1&category=<?php echo $selectedCategory; ?>&per_page=<?php echo $itemsPerPage; ?>">1</a></li>
+                                    <?php if ($startPage > 2): ?>
+                                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                                <?php for ($i = $startPage; $i <= $endPage; $i++): ?>
+                                <li class="page-item <?php echo $i == $currentPage ? 'active' : ''; ?>">
+                                    <a class="page-link" href="?page=<?php echo $i; ?>&category=<?php echo $selectedCategory; ?>&per_page=<?php echo $itemsPerPage; ?>"><?php echo $i; ?></a>
+                                </li>
+                                <?php endfor; ?>
+                                <?php if ($endPage < $totalPages): ?>
+                                    <?php if ($endPage < $totalPages - 1): ?>
+                                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                                    <?php endif; ?>
+                                    <li class="page-item"><a class="page-link" href="?page=<?php echo $totalPages; ?>&category=<?php echo $selectedCategory; ?>&per_page=<?php echo $itemsPerPage; ?>"><?php echo $totalPages; ?></a></li>
+                                <?php endif; ?>
+                                <li class="page-item <?php echo $currentPage == $totalPages ? 'disabled' : ''; ?>">
+                                    <a class="page-link" href="?page=<?php echo $currentPage + 1; ?>&category=<?php echo $selectedCategory; ?>&per_page=<?php echo $itemsPerPage; ?>">下一页</a>
+                                </li>
+                            </ul>
+                        </nav>
                         <?php endif; ?>
                     </div>
                 </div>
-            </div>
         </div>
     </div>
 
@@ -550,7 +735,22 @@ $allTags = $productObj->getAllTags();
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // 产品数据
-        const productsData = <?php echo json_encode($products); ?>;
+        const productsData = <?php echo json_encode($paginatedProducts); ?>;
+        
+        // 分类筛选
+        function filterByCategory() {
+            const categoryId = document.getElementById('categoryFilter').value;
+            const perPage = document.getElementById('itemsPerPage').value;
+            window.location.href = `?category=${categoryId}&per_page=${perPage}`;
+        }
+        
+        // 修改每页显示数量
+        function changeItemsPerPage() {
+            const categoryId = document.getElementById('categoryFilter').value;
+            const perPage = document.getElementById('itemsPerPage').value;
+            // 直接跳转，系统会在后台保存设置
+            window.location.href = `?category=${categoryId}&per_page=${perPage}&page=1`;
+        }
         
         // Markdown编辑器实例
         let editors = {

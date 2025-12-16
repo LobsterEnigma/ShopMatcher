@@ -134,6 +134,11 @@ $chatStats = $chat->getUserChatStats($_SESSION['user_id']);
             right: 20px;
             z-index: 1000;
         }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
@@ -143,19 +148,26 @@ $chatStats = $chat->getUserChatStats($_SESSION['user_id']);
             <a class="navbar-brand" href="index.php">
                 <i class="fas fa-gamepad"></i> <?php echo getSiteName(); ?>
             </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain" aria-controls="navbarMain" aria-expanded="false" aria-label="切换导航">
+                <span class="navbar-toggler-icon"></span>
+            </button>
             
-            <div class="navbar-nav me-auto">
-                <a class="nav-link" href="index.php">首页</a>
-                <a class="nav-link" href="products.php">产品对比</a>
-                <a class="nav-link active" href="chat.php">讨论区</a>
-                <a class="nav-link" href="profile.php">个人中心</a>
-            </div>
-            
-            <div class="navbar-nav">
-                <span class="text-light me-3">
-                    <i class="fas fa-user"></i> <?php echo htmlspecialchars($userInfo['username']); ?>
-                </span>
-                <a href="logout.php" class="btn btn-outline-light">退出</a>
+            <div class="collapse navbar-collapse" id="navbarMain">
+                <div class="navbar-nav me-auto">
+                    <a class="nav-link" href="index.php">首页</a>
+                    <a class="nav-link" href="products.php">产品对比</a>
+                    <a class="nav-link active" href="chat.php">讨论区</a>
+                    <a class="nav-link" href="guide.php">使用指南</a>
+                    <a class="nav-link" href="profile.php">个人中心</a>
+                </div>
+                
+                <div class="user-info">
+                    <span class="text-light">
+                        <i class="fas fa-user"></i> 
+                        <?php echo htmlspecialchars($userInfo['username'] ?? '用户'); ?>
+                    </span>
+                    <a href="logout.php" class="btn btn-outline-light btn-sm">退出</a>
+                </div>
             </div>
         </div>
     </nav>

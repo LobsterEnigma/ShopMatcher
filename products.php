@@ -118,6 +118,11 @@ $compareLimits = $productObj->getCompareLimitsForUser($_SESSION['user_id'] ?? nu
             font-size: 0.8rem;
             font-weight: bold;
         }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
@@ -127,23 +132,33 @@ $compareLimits = $productObj->getCompareLimitsForUser($_SESSION['user_id'] ?? nu
             <a class="navbar-brand" href="index.php">
                 <i class="fas fa-gamepad"></i> <?php echo getSiteName(); ?>
             </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain" aria-controls="navbarMain" aria-expanded="false" aria-label="切换导航">
+                <span class="navbar-toggler-icon"></span>
+            </button>
             
-            <div class="navbar-nav me-auto">
-                <a class="nav-link" href="index.php">首页</a>
-                <a class="nav-link active" href="products.php">产品对比</a>
-                <a class="nav-link" href="chat.php">讨论区</a>
-                <?php if (isset($_SESSION['user_id'])): ?>
-                <a class="nav-link" href="profile.php">个人中心</a>
-                <?php endif; ?>
-            </div>
-            
-            <div class="navbar-nav">
-                <?php if (isset($_SESSION['user_id'])): ?>
-                    <a href="logout.php" class="btn btn-outline-light">退出</a>
-                <?php else: ?>
-                    <a href="login.php" class="btn btn-outline-light me-2">登录</a>
-                    <a href="register.php" class="btn btn-primary">注册</a>
-                <?php endif; ?>
+            <div class="collapse navbar-collapse" id="navbarMain">
+                <div class="navbar-nav me-auto">
+                    <a class="nav-link" href="index.php">首页</a>
+                    <a class="nav-link active" href="products.php">产品对比</a>
+                    <?php if (isset($_SESSION['user_id'])): ?>
+                    <a class="nav-link" href="chat.php">讨论区</a>
+                    <a class="nav-link" href="guide.php">使用指南</a>
+                    <a class="nav-link" href="profile.php">个人中心</a>
+                    <?php endif; ?>
+                </div>
+                
+                <div class="user-info">
+                    <?php if (isset($_SESSION['user_id'])): ?>
+                        <span class="text-light">
+                            <i class="fas fa-user"></i> 
+                            <?php echo htmlspecialchars($_SESSION['username'] ?? '用户'); ?>
+                        </span>
+                        <a href="logout.php" class="btn btn-outline-light btn-sm">退出</a>
+                    <?php else: ?>
+                        <a href="login.php" class="btn btn-outline-light me-2">登录</a>
+                        <a href="register.php" class="btn btn-primary">注册</a>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
     </nav>

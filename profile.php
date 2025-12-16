@@ -94,6 +94,11 @@ if ($_POST && isset($_POST['change_username'])) {
             color: #6c757d;
             font-size: 0.9rem;
         }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
@@ -103,16 +108,25 @@ if ($_POST && isset($_POST['change_username'])) {
             <a class="navbar-brand" href="index.php">
                 <i class="fas fa-gamepad"></i> <?php echo getSiteName(); ?>
             </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain" aria-controls="navbarMain" aria-expanded="false" aria-label="切换导航">
+                <span class="navbar-toggler-icon"></span>
+            </button>
             
-            <div class="navbar-nav me-auto">
-                <a class="nav-link" href="index.php">首页</a>
-                <a class="nav-link" href="products.php">产品对比</a>
-                <a class="nav-link" href="chat.php">讨论区</a>
-                <a class="nav-link active" href="profile.php">个人中心</a>
-            </div>
-            
-            <div class="navbar-nav">
-                <a href="logout.php" class="btn btn-outline-light">退出</a>
+            <div class="collapse navbar-collapse" id="navbarMain">
+                <div class="navbar-nav me-auto">
+                    <a class="nav-link" href="index.php">首页</a>
+                    <a class="nav-link" href="products.php">产品对比</a>
+                    <a class="nav-link" href="chat.php">讨论区</a>
+                    <a class="nav-link active" href="profile.php">个人中心</a>
+                </div>
+                
+                <div class="user-info">
+                    <span class="text-light">
+                        <i class="fas fa-user"></i> 
+                        <?php echo htmlspecialchars($_SESSION['username'] ?? '用户'); ?>
+                    </span>
+                    <a href="logout.php" class="btn btn-outline-light btn-sm">退出</a>
+                </div>
             </div>
         </div>
     </nav>
@@ -152,18 +166,8 @@ if ($_POST && isset($_POST['change_username'])) {
                             <a href="chat.php" class="btn btn-outline-success">
                                 <i class="fas fa-comments"></i> 讨论区
                             </a>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- 指南 -->
-                <div class="profile-card">
-                    <div class="p-4">
-                        <h6><i class="fas fa-book"></i> 使用指南</h6>
-                        <p class="text-muted small mb-3">查看产品对比功能的使用教程和技巧</p>
-                        <div class="d-grid">
                             <a href="guide.php" class="btn btn-outline-info">
-                                <i class="fas fa-book-open"></i> 查看指南
+                                <i class="fas fa-book"></i> 使用指南
                             </a>
                         </div>
                     </div>
