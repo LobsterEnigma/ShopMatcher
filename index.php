@@ -86,10 +86,13 @@ $products = $productObj->getAllProducts();
                     <li class="nav-item">
                         <a class="nav-link" href="products.php">产品对比</a>
                     </li>
+                    <?php if (isset($_SESSION['user_id'])): ?>
                     <li class="nav-item">
                         <a class="nav-link" href="chat.php">讨论区</a>
                     </li>
-                    <?php if (isset($_SESSION['user_id'])): ?>
+                    <li class="nav-item">
+                        <a class="nav-link" href="guide.php">使用指南</a>
+                    </li>
                     <li class="nav-item">
                         <a class="nav-link" href="profile.php">个人中心</a>
                     </li>

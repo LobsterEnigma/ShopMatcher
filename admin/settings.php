@@ -16,6 +16,7 @@ if ($_POST) {
     $settings = [
         'max_comparison_per_day' => $_POST['max_comparison_per_day'] ?? '10',
         'max_products_compare' => $_POST['max_products_compare'] ?? '5',
+        'products_per_page' => $_POST['products_per_page'] ?? '10',
         'site_name' => $_POST['site_name'] ?? SITE_NAME,
         'site_description' => $_POST['site_description'] ?? ''
     ];
@@ -186,6 +187,21 @@ $settings = $admin->getSystemSettings();
                                             <input type="number" class="form-control" name="max_products_compare" 
                                                    value="<?php echo $settings['max_products_compare'] ?? '5'; ?>">
                                             <div class="form-text">单次对比最多可以选择的产品数量</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 产品管理设置 -->
+                            <div class="settings-card">
+                                <h5><i class="fas fa-gamepad"></i> 产品管理设置</h5>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">每页显示产品数量</label>
+                                            <input type="number" class="form-control" name="products_per_page" 
+                                                   value="<?php echo $settings['products_per_page'] ?? '10'; ?>" min="1" max="100">
+                                            <div class="form-text">后台产品管理页面每页显示的产品数量（1-100）</div>
                                         </div>
                                     </div>
                                 </div>
