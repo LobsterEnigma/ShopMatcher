@@ -150,28 +150,13 @@ if ($action === 'add') {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-        }
-        .container-fluid {
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-        .container-fluid > .row {
-            flex: 1;
-            display: flex;
-            margin: 0;
-            min-height: 0;
+        body {
+            background: #f5f7fa;
         }
         .sidebar {
+            min-height: 100vh;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
         }
         .sidebar .nav-link {
             color: rgba(255,255,255,0.8);
@@ -187,11 +172,7 @@ if ($action === 'add') {
         }
         .main-content {
             background: #f8f9fa;
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-            overflow-y: auto;
-            min-height: 0;
+            min-height: 100vh;
         }
         .navbar-admin {
             background: white;
@@ -319,6 +300,9 @@ if ($action === 'add') {
                         <a class="nav-link" href="product_comments.php">
                             <i class="fas fa-star"></i> 站长点评
                         </a>
+                        <a class="nav-link" href="dictionary.php">
+                            <i class="fas fa-book-open"></i> 字典管理
+                        </a>
                         <a class="nav-link" href="admins.php">
                             <i class="fas fa-user-shield"></i> 管理员
                         </a>
@@ -347,7 +331,7 @@ if ($action === 'add') {
                     </nav>
                     
                     <!-- 内容区 -->
-                    <div class="p-4">
+                    <div style="padding: 30px;">
                         <?php if ($message): ?>
                         <div class="alert alert-<?php echo $messageType; ?> alert-dismissible fade show" role="alert">
                             <i class="fas fa-<?php echo $messageType === 'success' ? 'check-circle' : 'exclamation-triangle'; ?>"></i> 

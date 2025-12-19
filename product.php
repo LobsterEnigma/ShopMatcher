@@ -22,6 +22,12 @@ if (!$product) {
 // 获取产品标签
 $product['tags'] = $productObj->getProductTags($productId);
 
+// 获取技术规格标签（如果是标签化模式）
+$productSpecTags = [];
+if (isset($product['specification_mode']) && $product['specification_mode'] === 'tagged') {
+    $productSpecTags = $productObj->getProductSpecificationTags($productId);
+}
+
 // 获取该产品的站长点评
 $db = new Database();
 $pdo = $db->getConnection();
@@ -294,11 +300,62 @@ $adminComments = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     </div>
                     <?php endif; ?>
 
-                    <?php if (!empty($product['specifications'])): ?>
+                    <?php if (!empty($product['specifications']) || !empty($productSpecTags)): ?>
                     <div class="product-section">
                         <h5><i class="fas fa-cog"></i> 技术规格</h5>
                         <?php if (isset($_SESSION['user_id'])): ?>
-                        <div class="markdown-content"><?php echo Markdown::toHtml($product['specifications']); ?></div>
+                            <?php if (isset($product['specification_mode']) && $product['specification_mode'] === 'tagged' && !empty($productSpecTags)): ?>
+                                <!-- 标签化显示 -->
+                                <div class="specification-tagged-display">
+                                    <?php
+                                    // 按字段分组
+                                    $tagsByField = [];
+                                    foreach ($productSpecTags as $tag) {
+                                        $fieldId = $tag['field_id'];
+                                        $tagValue = $tag['tag_name'] ?? $tag['custom_value'];
+                                        // 过滤空值
+                                        if (empty($tagValue)) {
+                                            continue;
+                                        }
+                                        
+                                        if (!isset($tagsByField[$fieldId])) {
+                                            $tagsByField[$fieldId] = [
+                                                'field_name' => $tag['field_name'] ?? '',
+                                                'display_order' => $tag['display_order'] ?? 999999,
+                                                'tags' => []
+                                            ];
+                                        }
+                                        $tagsByField[$fieldId]['tags'][] = [
+                                            'value' => $tagValue,
+                                            'tag_display_order' => $tag['tag_display_order'] ?? 999999
+                                        ];
+                                    }
+                                    
+                                    // 按display_order排序字段
+                                    uasort($tagsByField, function($a, $b) {
+                                        return $a['display_order'] <=> $b['display_order'];
+                                    });
+                                    
+                                    foreach ($tagsByField as $fieldId => $fieldData):
+                                        // 对标签按display_order排序
+                                        usort($fieldData['tags'], function($a, $b) {
+                                            return $a['tag_display_order'] <=> $b['tag_display_order'];
+                                        });
+                                    ?>
+                                    <div class="mb-3 p-3 border rounded">
+                                        <div class="fw-bold mb-2"><?php echo htmlspecialchars($fieldData['field_name']); ?>：</div>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <?php foreach ($fieldData['tags'] as $tagItem): ?>
+                                            <span class="badge bg-primary"><?php echo htmlspecialchars($tagItem['value']); ?></span>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php else: ?>
+                                <!-- Markdown显示 -->
+                                <div class="markdown-content"><?php echo Markdown::toHtml($product['specifications']); ?></div>
+                            <?php endif; ?>
                         <?php else: ?>
                         <div class="alert alert-warning">
                             <i class="fas fa-lock"></i> 此内容需要登录后才能查看，请先 <a href="login.php">登录</a> 或 <a href="register.php">注册</a>
