@@ -85,10 +85,10 @@ $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             <div class="collapse navbar-collapse" id="navbarMain">
                 <div class="navbar-nav me-auto">
-                    <a class="nav-link" href="index.php">首页</a>
-                    <a class="nav-link" href="products.php">产品对比</a>
+                        <a class="nav-link" href="index.php">首页</a>
+                        <a class="nav-link" href="products.php">产品对比</a>
                     <?php if (isset($_SESSION['user_id'])): ?>
-                    <a class="nav-link" href="chat.php">讨论区</a>
+                        <a class="nav-link" href="chat.php">讨论区</a>
                     <a class="nav-link" href="guide.php">使用指南</a>
                     <a class="nav-link" href="profile.php">个人中心</a>
                     <?php endif; ?>

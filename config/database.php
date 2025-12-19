@@ -371,8 +371,172 @@ class Database {
             // 字段已存在，忽略错误
         }
         
+        // 为products表添加last_modified字段（如果不存在）
+        try {
+            // 检查字段是否存在
+            $stmt = $this->pdo->query("PRAGMA table_info(products)");
+            $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $hasLastModified = false;
+            foreach ($columns as $column) {
+                if ($column['name'] === 'last_modified') {
+                    $hasLastModified = true;
+                    break;
+                }
+            }
+            
+            if (!$hasLastModified) {
+                $this->pdo->exec("ALTER TABLE products ADD COLUMN last_modified DATETIME");
+                // 为现有产品初始化last_modified字段
+                $this->pdo->exec("UPDATE products SET last_modified = created_at WHERE last_modified IS NULL");
+            }
+        } catch (PDOException $e) {
+            // 如果出错，尝试直接添加字段
+            try {
+                $this->pdo->exec("ALTER TABLE products ADD COLUMN last_modified DATETIME");
+                $this->pdo->exec("UPDATE products SET last_modified = created_at WHERE last_modified IS NULL");
+            } catch (PDOException $e2) {
+                // 忽略错误
+            }
+        }
+        
+        // 技术规格字段表（固定字段，仅用于手柄分类）
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS specification_fields (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(100) NOT NULL,
+                display_order INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+        
+        // 技术规格标签表（每个字段的标签值）
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS specification_tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                field_id INTEGER NOT NULL,
+                tag_name VARCHAR(100) NOT NULL,
+                display_order INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (field_id) REFERENCES specification_fields(id) ON DELETE CASCADE,
+                UNIQUE(field_id, tag_name)
+            )
+        ");
+        
+        // 为specification_tags表添加display_order字段（如果不存在）
+        try {
+            $stmt = $this->pdo->query("PRAGMA table_info(specification_tags)");
+            $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $hasDisplayOrder = false;
+            foreach ($columns as $column) {
+                if ($column['name'] === 'display_order') {
+                    $hasDisplayOrder = true;
+                    break;
+                }
+            }
+            
+            if (!$hasDisplayOrder) {
+                $this->pdo->exec("ALTER TABLE specification_tags ADD COLUMN display_order INTEGER DEFAULT 0");
+                // 为现有标签初始化display_order
+                $this->pdo->exec("UPDATE specification_tags SET display_order = id WHERE display_order = 0 OR display_order IS NULL");
+            }
+        } catch (PDOException $e) {
+            // 忽略错误
+        }
+        
+        // 产品技术规格标签关联表
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS product_specification_tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER NOT NULL,
+                field_id INTEGER NOT NULL,
+                tag_id INTEGER,
+                custom_value TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+                FOREIGN KEY (field_id) REFERENCES specification_fields(id) ON DELETE CASCADE,
+                FOREIGN KEY (tag_id) REFERENCES specification_tags(id) ON DELETE SET NULL
+            )
+        ");
+        
+        // 为products表添加specification_mode字段（标记使用MD模式还是标签化模式）
+        try {
+            $stmt = $this->pdo->query("PRAGMA table_info(products)");
+            $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $hasSpecMode = false;
+            foreach ($columns as $column) {
+                if ($column['name'] === 'specification_mode') {
+                    $hasSpecMode = true;
+                    break;
+                }
+            }
+            if (!$hasSpecMode) {
+                $this->pdo->exec("ALTER TABLE products ADD COLUMN specification_mode VARCHAR(20) DEFAULT 'markdown'");
+            }
+        } catch (PDOException $e) {
+            // 忽略错误
+        }
+        
+        // 为specification_fields表添加category_id字段（用于支持多分类）
+        try {
+            $stmt = $this->pdo->query("PRAGMA table_info(specification_fields)");
+            $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $hasCategoryId = false;
+            foreach ($columns as $column) {
+                if ($column['name'] === 'category_id') {
+                    $hasCategoryId = true;
+                    break;
+                }
+            }
+            if (!$hasCategoryId) {
+                $this->pdo->exec("ALTER TABLE specification_fields ADD COLUMN category_id INTEGER");
+                // 为现有字段设置默认分类（手柄分类）
+                $stmt = $this->pdo->query("SELECT id FROM categories WHERE name = '手柄' LIMIT 1");
+                $handleCategory = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($handleCategory) {
+                    $this->pdo->exec("UPDATE specification_fields SET category_id = " . $handleCategory['id'] . " WHERE category_id IS NULL");
+                }
+            }
+        } catch (PDOException $e) {
+            // 忽略错误
+        }
+        
+        // 初始化技术规格字段（无论是否有其他数据）
+        $this->initializeSpecificationFields();
+        
         // 插入默认数据
         $this->insertDefaultData();
+    }
+    
+    private function initializeSpecificationFields() {
+        // 检查技术规格字段是否已存在
+        $stmt = $this->pdo->query("SELECT COUNT(*) FROM specification_fields");
+        $fieldCount = $stmt->fetchColumn();
+        
+        // 如果字段表为空，插入12个默认字段（仅用于手柄分类）
+        if ($fieldCount == 0) {
+            // 获取手柄分类ID
+            $stmt = $this->pdo->query("SELECT id FROM categories WHERE name = '手柄' LIMIT 1");
+            $handleCategory = $stmt->fetch(PDO::FETCH_ASSOC);
+            $categoryId = $handleCategory ? $handleCategory['id'] : null;
+            
+            $specFields = [
+                '连接方式', '支持平台', '摇杆', '扳机', '肩键', '十字键', 
+                'ABXY键', '震动', '电量', '陀螺仪', '自定义按键', '重量'
+            ];
+            foreach ($specFields as $index => $fieldName) {
+                try {
+                    if ($categoryId) {
+                        $stmt = $this->pdo->prepare("INSERT INTO specification_fields (name, display_order, category_id) VALUES (?, ?, ?)");
+                        $stmt->execute([$fieldName, $index + 1, $categoryId]);
+                    } else {
+                        $stmt = $this->pdo->prepare("INSERT INTO specification_fields (name, display_order) VALUES (?, ?)");
+                        $stmt->execute([$fieldName, $index + 1]);
+                    }
+                } catch (PDOException $e) {
+                    // 忽略重复插入错误
+                }
+            }
+        }
     }
     
     private function insertDefaultData() {

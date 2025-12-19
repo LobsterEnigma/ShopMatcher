@@ -30,11 +30,13 @@ if (!$result['success']) {
 
 $products = $result['products'];
 
-// 获取每个产品的站长意见
+// 获取每个产品的站长意见和技术规格标签
 $db = new Database();
 $pdo = $db->getConnection();
 $adminCommentsMap = [];
+$productSpecTagsMap = [];
 foreach ($productIds as $pid) {
+    // 获取站长意见
     $stmt = $pdo->prepare("
         SELECT pac.*, a.username as admin_username 
         FROM product_admin_comments pac
@@ -44,6 +46,20 @@ foreach ($productIds as $pid) {
     ");
     $stmt->execute([$pid]);
     $adminCommentsMap[$pid] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // 获取技术规格标签（如果是标签化模式）
+    $product = null;
+    foreach ($products as $p) {
+        if ($p['id'] == $pid) {
+            $product = $p;
+            break;
+        }
+    }
+    if ($product && isset($product['specification_mode']) && $product['specification_mode'] === 'tagged') {
+        $productSpecTagsMap[$pid] = $productObj->getProductSpecificationTags($pid);
+    } else {
+        $productSpecTagsMap[$pid] = [];
+    }
 }
 ?>
 
@@ -104,6 +120,32 @@ foreach ($productIds as $pid) {
         .markdown-content ol {
             padding-left: 1.25rem;
             margin-bottom: 1rem;
+        }
+        .specification-tagged-comparison {
+            font-size: 0.9rem;
+        }
+        .spec-field-item {
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+        }
+        .spec-field-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+            margin-bottom: 0;
+        }
+        .spec-field-name {
+            font-size: 0.95rem;
+            color: #495057;
+            margin-bottom: 4px;
+        }
+        .spec-tags-list {
+            margin-top: 4px;
+        }
+        .spec-tags-list .badge {
+            font-size: 0.85rem;
+            padding: 4px 8px;
+            margin-bottom: 2px;
         }
         .admin-comment-item {
             max-height: 300px;
@@ -424,12 +466,78 @@ foreach ($productIds as $pid) {
                                 <?php endif; ?>
                                 
                                 <!-- 技术规格 -->
-                                <?php if (!empty($products[0]['specifications'])): ?>
+                                <?php 
+                                // 检查是否有技术规格（Markdown或标签化）
+                                $hasSpecs = false;
+                                foreach ($products as $product) {
+                                    if (!empty($product['specifications']) || !empty($productSpecTagsMap[$product['id']])) {
+                                        $hasSpecs = true;
+                                        break;
+                                    }
+                                }
+                                if ($hasSpecs): 
+                                ?>
                                 <tr class="comparison-row">
                                     <td class="feature-label">技术规格</td>
                                     <?php foreach ($products as $product): ?>
-                                    <td class="feature-value markdown-content">
-                                        <?php echo Markdown::toHtml($product['specifications']); ?>
+                                    <td class="feature-value">
+                                        <?php 
+                                        // 检查是否是标签化模式
+                                        if (isset($product['specification_mode']) && $product['specification_mode'] === 'tagged' && !empty($productSpecTagsMap[$product['id']])) {
+                                            // 标签化显示 - 竖列展示
+                                            $tagsByField = [];
+                                            foreach ($productSpecTagsMap[$product['id']] as $tag) {
+                                                $fieldId = $tag['field_id'];
+                                                if (!isset($tagsByField[$fieldId])) {
+                                                    $tagsByField[$fieldId] = [
+                                                        'field_name' => $tag['field_name'],
+                                                        'display_order' => $tag['display_order'],
+                                                        'tags' => []
+                                                    ];
+                                                }
+                                                $tagValue = $tag['tag_name'] ?? $tag['custom_value'];
+                                                // 过滤空值
+                                                if (!empty($tagValue)) {
+                                                    $tagsByField[$fieldId]['tags'][] = [
+                                                        'value' => $tagValue,
+                                                        'tag_display_order' => $tag['tag_display_order'] ?? 999999
+                                                    ];
+                                                }
+                                            }
+                                            
+                                            // 按display_order排序字段
+                                            uasort($tagsByField, function($a, $b) {
+                                                return $a['display_order'] <=> $b['display_order'];
+                                            });
+                                            
+                                            // 竖列展示
+                                            echo '<div class="specification-tagged-comparison">';
+                                            foreach ($tagsByField as $fieldId => $fieldData) {
+                                                // 对标签按display_order排序
+                                                usort($fieldData['tags'], function($a, $b) {
+                                                    return $a['tag_display_order'] <=> $b['tag_display_order'];
+                                                });
+                                                
+                                                echo '<div class="spec-field-item mb-2">';
+                                                echo '<div class="spec-field-name fw-bold text-primary mb-1">' . htmlspecialchars($fieldData['field_name'] ?? '') . '：</div>';
+                                                echo '<div class="spec-tags-list d-flex flex-column gap-1">';
+                                                foreach ($fieldData['tags'] as $tagItem) {
+                                                    $tagValue = $tagItem['value'] ?? '';
+                                                    if (!empty($tagValue)) {
+                                                        echo '<span class="badge bg-primary align-self-start">' . htmlspecialchars($tagValue) . '</span>';
+                                                    }
+                                                }
+                                                echo '</div>';
+                                                echo '</div>';
+                                            }
+                                            echo '</div>';
+                                        } elseif (!empty($product['specifications'])) {
+                                            // Markdown显示
+                                            echo '<div class="markdown-content">' . Markdown::toHtml($product['specifications']) . '</div>';
+                                        } else {
+                                            echo '<span class="text-muted">暂无</span>';
+                                        }
+                                        ?>
                                     </td>
                                     <?php endforeach; ?>
                                 </tr>

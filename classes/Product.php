@@ -40,9 +40,10 @@ class Product {
     // 添加产品
     public function addProduct($data) {
         $pdo = $this->db->getConnection();
+        $specMode = $data['specification_mode'] ?? 'markdown';
         $stmt = $pdo->prepare("
-            INSERT INTO products (category_id, name, brand, price, image_url, description, features, specifications, faq, created_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            INSERT INTO products (category_id, name, brand, price, image_url, description, features, specifications, faq, specification_mode, created_at, last_modified) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
         ");
         $result = $stmt->execute([
             $data['category_id'],
@@ -53,25 +54,29 @@ class Product {
             $data['description'],
             $data['features'],
             $data['specifications'],
-            $data['faq']
+            $data['faq'],
+            $specMode
         ]);
         
         // 如果有标签，设置标签
         if ($result && isset($data['tags']) && !empty($data['tags'])) {
             $productId = $pdo->lastInsertId();
             $this->setProductTags($productId, $data['tags']);
+            return $productId;
         }
         
-        return $result;
+        return $result ? $pdo->lastInsertId() : false;
     }
     
     // 更新产品
     public function updateProduct($productId, $data) {
         $pdo = $this->db->getConnection();
+        $specMode = $data['specification_mode'] ?? 'markdown';
         $stmt = $pdo->prepare("
             UPDATE products SET 
                 category_id = ?, name = ?, brand = ?, price = ?, image_url = ?, 
-                description = ?, features = ?, specifications = ?, faq = ?
+                description = ?, features = ?, specifications = ?, faq = ?,
+                specification_mode = ?, last_modified = datetime('now')
             WHERE id = ?
         ");
         $result = $stmt->execute([
@@ -84,6 +89,7 @@ class Product {
             $data['features'],
             $data['specifications'],
             $data['faq'],
+            $specMode,
             $productId
         ]);
         
@@ -545,6 +551,136 @@ class Product {
         ");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    // ========== 技术规格标签相关方法 ==========
+    
+    // 获取所有技术规格字段（用于手柄分类）
+    public function getSpecificationFields() {
+        $pdo = $this->db->getConnection();
+        $stmt = $pdo->query("SELECT * FROM specification_fields ORDER BY display_order ASC");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    // 获取指定字段的所有标签
+    public function getSpecificationTagsByField($fieldId) {
+        $pdo = $this->db->getConnection();
+        $stmt = $pdo->prepare("SELECT * FROM specification_tags WHERE field_id = ? ORDER BY display_order ASC, tag_name ASC");
+        $stmt->execute([$fieldId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    // 创建或获取技术规格标签
+    public function createOrGetSpecificationTag($fieldId, $tagName) {
+        $pdo = $this->db->getConnection();
+        $tagName = trim($tagName);
+        if (empty($tagName)) {
+            return null;
+        }
+        
+        // 先尝试获取现有标签
+        $stmt = $pdo->prepare("SELECT id FROM specification_tags WHERE field_id = ? AND tag_name = ?");
+        $stmt->execute([$fieldId, $tagName]);
+        $tag = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($tag) {
+            return $tag['id'];
+        }
+        
+        // 获取当前字段的最大display_order
+        $stmt = $pdo->prepare("SELECT MAX(display_order) as max_order FROM specification_tags WHERE field_id = ?");
+        $stmt->execute([$fieldId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $nextOrder = ($result['max_order'] ?? 0) + 1;
+        
+        // 创建新标签
+        $stmt = $pdo->prepare("INSERT INTO specification_tags (field_id, tag_name, display_order) VALUES (?, ?, ?)");
+        $stmt->execute([$fieldId, $tagName, $nextOrder]);
+        return $pdo->lastInsertId();
+    }
+    
+    // 获取产品的技术规格标签
+    public function getProductSpecificationTags($productId) {
+        $pdo = $this->db->getConnection();
+        $stmt = $pdo->prepare("
+            SELECT pst.*, sf.name as field_name, sf.display_order, 
+                   COALESCE(st.tag_name, pst.custom_value) as tag_name,
+                   COALESCE(st.display_order, 999999) as tag_display_order,
+                   pst.custom_value
+            FROM product_specification_tags pst
+            INNER JOIN specification_fields sf ON pst.field_id = sf.id
+            LEFT JOIN specification_tags st ON pst.tag_id = st.id
+            WHERE pst.product_id = ?
+            ORDER BY sf.display_order ASC, COALESCE(st.display_order, 999999) ASC
+        ");
+        $stmt->execute([$productId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    // 设置产品的技术规格标签
+    public function setProductSpecificationTags($productId, $specData) {
+        $pdo = $this->db->getConnection();
+        
+        try {
+            // 开始事务
+            $pdo->beginTransaction();
+            
+            // 删除现有标签关联
+            $stmt = $pdo->prepare("DELETE FROM product_specification_tags WHERE product_id = ?");
+            $stmt->execute([$productId]);
+            
+            // 添加新标签
+            if (!empty($specData) && is_array($specData)) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO product_specification_tags (product_id, field_id, tag_id, custom_value) 
+                    VALUES (?, ?, ?, ?)
+                ");
+                
+                foreach ($specData as $fieldId => $values) {
+                    if (empty($values) || !is_array($values)) {
+                        continue;
+                    }
+                    
+                    foreach ($values as $value) {
+                        $value = trim($value);
+                        if (empty($value)) {
+                            continue;
+                        }
+                        
+                        // 尝试查找现有标签
+                        $tagStmt = $pdo->prepare("SELECT id FROM specification_tags WHERE field_id = ? AND tag_name = ?");
+                        $tagStmt->execute([$fieldId, $value]);
+                        $tag = $tagStmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($tag) {
+                            // 使用现有标签
+                            $stmt->execute([$productId, $fieldId, $tag['id'], null]);
+                            error_log("使用现有标签 - productId: $productId, fieldId: $fieldId, tagId: {$tag['id']}, value: $value");
+                        } else {
+                            // 创建新标签并使用
+                            $tagId = $this->createOrGetSpecificationTag($fieldId, $value);
+                            if ($tagId) {
+                                $stmt->execute([$productId, $fieldId, $tagId, null]);
+                                error_log("创建并使用新标签 - productId: $productId, fieldId: $fieldId, tagId: $tagId, value: $value");
+                            } else {
+                                // 如果创建失败，使用自定义值
+                                $stmt->execute([$productId, $fieldId, null, $value]);
+                                error_log("使用自定义值 - productId: $productId, fieldId: $fieldId, value: $value");
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // 提交事务
+            $pdo->commit();
+            return true;
+        } catch (Exception $e) {
+            // 回滚事务
+            $pdo->rollBack();
+            error_log("保存技术规格标签时出错: " . $e->getMessage());
+            return false;
+        }
     }
 }
 ?>

@@ -17,6 +17,7 @@
     作者：<a href="https://github.com/LobsterEnigma">LobsterEnigma</a>
   </div>
 
+## 目前最新版本：V1.4.0
 
 ## ✨ 功能特性
 详情请[查看完整文档](docs/使用文档zh.md)

@@ -145,6 +145,9 @@ $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <a class="nav-link" href="product_comments.php">
                             <i class="fas fa-star"></i> 站长点评
                         </a>
+                        <a class="nav-link" href="dictionary.php">
+                            <i class="fas fa-book-open"></i> 字典管理
+                        </a>
                         <a class="nav-link" href="admins.php">
                             <i class="fas fa-user-shield"></i> 管理员
                         </a>
