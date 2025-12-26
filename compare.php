@@ -469,70 +469,93 @@ foreach ($productIds as $pid) {
                                 <?php 
                                 // 检查是否有技术规格（Markdown或标签化）
                                 $hasSpecs = false;
+                                $hasTaggedMode = false;
                                 foreach ($products as $product) {
                                     if (!empty($product['specifications']) || !empty($productSpecTagsMap[$product['id']])) {
                                         $hasSpecs = true;
-                                        break;
+                                    }
+                                    if (isset($product['specification_mode']) && $product['specification_mode'] === 'tagged' && !empty($productSpecTagsMap[$product['id']])) {
+                                        $hasTaggedMode = true;
                                     }
                                 }
+                                
                                 if ($hasSpecs): 
+                                    // 如果是标签化模式，按字段分行显示
+                                    if ($hasTaggedMode) {
+                                        // 获取所有字段（从字典中获取，按display_order排序）
+                                        $stmt = $pdo->query("SELECT * FROM specification_fields ORDER BY display_order ASC");
+                                        $allFields = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                        
+                                        // 为每个产品准备标签数据（按字段分组）
+                                        $productsTagsByField = [];
+                                        foreach ($products as $product) {
+                                            $productId = $product['id'];
+                                            $productsTagsByField[$productId] = [];
+                                            
+                                            if (isset($product['specification_mode']) && $product['specification_mode'] === 'tagged' && !empty($productSpecTagsMap[$productId])) {
+                                                foreach ($productSpecTagsMap[$productId] as $tag) {
+                                                    $fieldId = $tag['field_id'];
+                                                    if (!isset($productsTagsByField[$productId][$fieldId])) {
+                                                        $productsTagsByField[$productId][$fieldId] = [];
+                                                    }
+                                                    $tagValue = $tag['tag_name'] ?? $tag['custom_value'];
+                                                    if (!empty($tagValue)) {
+                                                        $productsTagsByField[$productId][$fieldId][] = [
+                                                            'value' => $tagValue,
+                                                            'tag_display_order' => $tag['tag_display_order'] ?? 999999
+                                                        ];
+                                                    }
+                                                }
+                                                
+                                                // 对每个字段的标签按display_order排序
+                                                foreach ($productsTagsByField[$productId] as $fieldId => &$tags) {
+                                                    usort($tags, function($a, $b) {
+                                                        return $a['tag_display_order'] <=> $b['tag_display_order'];
+                                                    });
+                                                }
+                                            }
+                                        }
+                                        
+                                        // 为每个字段创建一行
+                                        foreach ($allFields as $field) {
+                                            $fieldId = $field['id'];
+                                            $fieldName = $field['name'];
+                                ?>
+                                <tr class="comparison-row">
+                                    <td class="feature-label"><?php echo htmlspecialchars($fieldName); ?></td>
+                                    <?php foreach ($products as $product): ?>
+                                    <td class="feature-value">
+                                        <?php 
+                                        $productId = $product['id'];
+                                        if (isset($productsTagsByField[$productId][$fieldId]) && !empty($productsTagsByField[$productId][$fieldId])) {
+                                            // 显示该字段的标签
+                                            echo '<div class="spec-tags-list d-flex flex-column gap-1">';
+                                            foreach ($productsTagsByField[$productId][$fieldId] as $tagItem) {
+                                                $tagValue = $tagItem['value'] ?? '';
+                                                if (!empty($tagValue)) {
+                                                    echo '<span class="badge bg-primary align-self-start">' . htmlspecialchars($tagValue) . '</span>';
+                                                }
+                                            }
+                                            echo '</div>';
+                                        } else {
+                                            // 如果没有标签，显示"无"
+                                            echo '<span class="text-muted">无</span>';
+                                        }
+                                        ?>
+                                    </td>
+                                    <?php endforeach; ?>
+                                </tr>
+                                <?php 
+                                        }
+                                    } else {
+                                        // Markdown模式，保持原来的显示方式
                                 ?>
                                 <tr class="comparison-row">
                                     <td class="feature-label">技术规格</td>
                                     <?php foreach ($products as $product): ?>
                                     <td class="feature-value">
                                         <?php 
-                                        // 检查是否是标签化模式
-                                        if (isset($product['specification_mode']) && $product['specification_mode'] === 'tagged' && !empty($productSpecTagsMap[$product['id']])) {
-                                            // 标签化显示 - 竖列展示
-                                            $tagsByField = [];
-                                            foreach ($productSpecTagsMap[$product['id']] as $tag) {
-                                                $fieldId = $tag['field_id'];
-                                                if (!isset($tagsByField[$fieldId])) {
-                                                    $tagsByField[$fieldId] = [
-                                                        'field_name' => $tag['field_name'],
-                                                        'display_order' => $tag['display_order'],
-                                                        'tags' => []
-                                                    ];
-                                                }
-                                                $tagValue = $tag['tag_name'] ?? $tag['custom_value'];
-                                                // 过滤空值
-                                                if (!empty($tagValue)) {
-                                                    $tagsByField[$fieldId]['tags'][] = [
-                                                        'value' => $tagValue,
-                                                        'tag_display_order' => $tag['tag_display_order'] ?? 999999
-                                                    ];
-                                                }
-                                            }
-                                            
-                                            // 按display_order排序字段
-                                            uasort($tagsByField, function($a, $b) {
-                                                return $a['display_order'] <=> $b['display_order'];
-                                            });
-                                            
-                                            // 竖列展示
-                                            echo '<div class="specification-tagged-comparison">';
-                                            foreach ($tagsByField as $fieldId => $fieldData) {
-                                                // 对标签按display_order排序
-                                                usort($fieldData['tags'], function($a, $b) {
-                                                    return $a['tag_display_order'] <=> $b['tag_display_order'];
-                                                });
-                                                
-                                                echo '<div class="spec-field-item mb-2">';
-                                                echo '<div class="spec-field-name fw-bold text-primary mb-1">' . htmlspecialchars($fieldData['field_name'] ?? '') . '：</div>';
-                                                echo '<div class="spec-tags-list d-flex flex-column gap-1">';
-                                                foreach ($fieldData['tags'] as $tagItem) {
-                                                    $tagValue = $tagItem['value'] ?? '';
-                                                    if (!empty($tagValue)) {
-                                                        echo '<span class="badge bg-primary align-self-start">' . htmlspecialchars($tagValue) . '</span>';
-                                                    }
-                                                }
-                                                echo '</div>';
-                                                echo '</div>';
-                                            }
-                                            echo '</div>';
-                                        } elseif (!empty($product['specifications'])) {
-                                            // Markdown显示
+                                        if (!empty($product['specifications'])) {
                                             echo '<div class="markdown-content">' . Markdown::toHtml($product['specifications']) . '</div>';
                                         } else {
                                             echo '<span class="text-muted">暂无</span>';
@@ -541,7 +564,10 @@ foreach ($productIds as $pid) {
                                     </td>
                                     <?php endforeach; ?>
                                 </tr>
-                                <?php endif; ?>
+                                <?php 
+                                    }
+                                endif; 
+                                ?>
                                 
                                 <!-- 常见问题 -->
                                 <?php if (!empty($products[0]['faq'])): ?>
