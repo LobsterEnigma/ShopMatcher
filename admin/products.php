@@ -1222,7 +1222,26 @@ foreach ($specFields as $field) {
         // 当编辑产品模态框关闭时清理
         document.getElementById('editProductModal').addEventListener('hidden.bs.modal', function() {
             currentEditProduct = null;
+            // 清除所有标签显示
+            clearAllSpecTags('edit');
         });
+        
+        // 清除所有技术规格标签
+        function clearAllSpecTags(mode) {
+            const specFields = <?php echo json_encode($specFields); ?>;
+            if (specFields && specFields.length > 0) {
+                specFields.forEach(field => {
+                    const container = document.getElementById(mode + '_spec_tags_' + field.id);
+                    if (container) {
+                        container.innerHTML = '';
+                    }
+                    const hiddenField = document.getElementById(mode + '_spec_field_' + field.id);
+                    if (hiddenField) {
+                        hiddenField.value = '';
+                    }
+                });
+            }
+        }
         
         // 同步编辑器内容到表单（提交前）
         function syncAddEditors() {
@@ -1368,6 +1387,9 @@ foreach ($specFields as $field) {
                 return;
             }
             
+            // 先清除所有标签，避免残留
+            clearAllSpecTags('edit');
+            
             // 保存产品数据供模态框显示时使用
             currentEditProduct = product;
             
@@ -1401,6 +1423,9 @@ foreach ($specFields as $field) {
                     })
                     .then(data => {
                         console.log('获取到的标签数据:', data);
+                        // 再次清除标签，确保没有残留（因为AJAX是异步的）
+                        clearAllSpecTags('edit');
+                        
                         if (data.success && data.tags && data.tags.length > 0) {
                             console.log('找到', data.tags.length, '个标签');
                             // 按字段分组
@@ -1698,37 +1723,7 @@ foreach ($specFields as $field) {
             <?php endif; ?>
         });
         
-        // 修改editProduct函数，加载已有的技术规格标签
-        const originalEditProduct = editProduct;
-        window.editProduct = function(productId) {
-            originalEditProduct(productId);
-            
-            // 加载技术规格标签
-            const product = productsData.find(p => p.id == productId);
-            if (product) {
-                // 设置技术规格模式
-                const specMode = product.specification_mode || 'markdown';
-                if (specMode === 'tagged') {
-                    document.getElementById('edit_spec_mode_tagged').checked = true;
-                    toggleSpecificationMode('edit');
-                    
-                    // 通过AJAX获取产品的技术规格标签
-                    fetch('../api/get_product_spec_tags.php?product_id=' + productId)
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                data.tags.forEach(tag => {
-                                    addTagBadge('edit', tag.field_id, tag.tag_name || tag.custom_value);
-                                });
-                            }
-                        })
-                        .catch(error => console.error('Error loading spec tags:', error));
-                } else {
-                    document.getElementById('edit_spec_mode_markdown').checked = true;
-                    toggleSpecificationMode('edit');
-                }
-            }
-        };
+        // 注意：editProduct函数已经在上面定义，不需要重复定义
     </script>
 </body>
 </html>
